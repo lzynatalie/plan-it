@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './App.css';
-import { useState } from 'react';
+import ImportNUSMods from "./ImportNUSMods";
 
 function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const handleLogin = (event) => {
-    event.preventdefault();
-    //TODO: add whatever api whatever, login logic whatever
+    event.preventDefault();
+    //TODO: Will eventually add in full login logic here. But for now,
+    //will just ask user whether they want to import calendar upon logging in
+    setLoggedIn(true);
   }
 
-  return (
+  if (!loggedIn) {
+    return (
     <div className="App">
       <h2>Login</h2>
       <form onSubmit={handleLogin}>
@@ -23,6 +27,14 @@ function App() {
       <br />
       <button type="submit">Login</button>
       </form>
+    </div>
+    );
+  }
+
+  return (
+    <div className = "App">
+      <h2>Welcome, {username}!</h2>
+      <ImportNUSMods />
     </div>
   );
 }
