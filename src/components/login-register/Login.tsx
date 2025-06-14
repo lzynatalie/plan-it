@@ -4,13 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
 
-import user from "../assets/user-icon.png";
-import mail from "../assets/mail-icon.png";
-import lock from "../assets/lock-icon.png";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock, faUser } from "@fortawesome/free-solid-svg-icons";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,13 +18,14 @@ const Login = () => {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
     setLoading(true);
 
     try {
-      await loginUser(email, password);
+      await loginUser(usernameOrEmail, password);
       navigate("/home");
     } catch (error) {
-      if (error instanceof AuthError) {
+      if (error instanceof AuthError || error instanceof Error) {
         setError(error.message);
       }
     } finally {
@@ -38,25 +37,15 @@ const Login = () => {
     <div className="container">
       <form action="" onSubmit={handleLogin}>
         <h1>Login</h1>
-        {/* <div className="input">
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-          <img className="icon" src={user} alt="" />
-        </div> */}
         <div className="input">
           <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder={"Username / Email"}
+            value={usernameOrEmail}
+            onChange={(e) => setUsernameOrEmail(e.target.value)}
             required
           />
-          <img className="icon" src={mail} alt="" />
+          <FontAwesomeIcon className="icon" icon={faUser} />
         </div>
         <div className="input">
           <input
@@ -66,7 +55,7 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <img className="icon" src={lock} alt="" />
+          <FontAwesomeIcon className="icon" icon={faLock} />
         </div>
         <div className="forgot">
           <p>
