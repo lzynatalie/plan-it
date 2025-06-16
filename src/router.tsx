@@ -1,31 +1,36 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
-import Login from "./components/login-register/Login";
-import Register from "./components/login-register/Register";
-import Home from "./components/home/Home";
-import PrivateRoute from "./components/route/PrivateRoute";
-import ResetPassword from "./components/login-register/ResetPassword";
-import UpdatePassword from "./components/login-register/UpdatePassword";
-import CreateProfile from "./components/login-register/CreateProfile";
+import PrivateRoute from "./components/private-route/PrivateRoute";
+import LoginPage from "./pages/login/LoginPage";
+import RegisterPage from "./pages/register/RegisterPage";
+import HomePage from "./pages/home/HomePage";
+import ResetPasswordPage from "./pages/login/pages/ResetPasswordPage";
+import UpdatePasswordPage from "./pages/login/pages/UpdatePasswordPage";
+import CreateProfilePage from "./pages/register/pages/CreateProfilePage";
+import CalendarPage from "./pages/calendar/CalendarPage";
+import FriendsPage from "./pages/friends/FriendsPage";
+import GroupsPage from "./pages/groups/GroupsPage";
+import EventsPage from "./pages/events/EventsPage";
+import VenuesPage from "./pages/venues/VenuesPage";
 
 export const router = createBrowserRouter([
   { path: "/", element: <App /> },
-  { path: "/login", element: <Login /> },
-  { path: "/register", element: <Register /> },
+  { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   {
     path: "/create-profile",
     element: (
       <PrivateRoute>
-        <CreateProfile />
+        <CreateProfilePage />
       </PrivateRoute>
     ),
   },
-  { path: "/reset-password", element: <ResetPassword /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   {
-    path: "/change-password",
+    path: "/update-password",
     element: (
       <PrivateRoute>
-        <UpdatePassword />
+        <UpdatePasswordPage />
       </PrivateRoute>
     ),
   },
@@ -33,7 +38,47 @@ export const router = createBrowserRouter([
     path: "/home",
     element: (
       <PrivateRoute>
-        <Home />
+        <HomePage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/calendar",
+    element: (
+      <PrivateRoute>
+        <CalendarPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/friends",
+    element: (
+      <PrivateRoute>
+        <FriendsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/groups",
+    element: (
+      <PrivateRoute>
+        <GroupsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/events",
+    element: (
+      <PrivateRoute>
+        <EventsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/venues",
+    element: (
+      <PrivateRoute>
+        <VenuesPage />
       </PrivateRoute>
     ),
   },

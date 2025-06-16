@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./LoginRegister.css";
+import style from "./Login.module.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
@@ -7,7 +7,7 @@ import { AuthError } from "@supabase/supabase-js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLock, faUser } from "@fortawesome/free-solid-svg-icons";
 
-const Login = () => {
+const LoginPage = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -79,4 +79,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default LoginPage;

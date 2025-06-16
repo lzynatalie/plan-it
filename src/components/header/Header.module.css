@@ -1,0 +1,19 @@
+.header {
+  height: 64px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  gap: 20px;
+  border-bottom: 0.1px solid white;
+}
+
+.logo {
+  height: 40px;
+  width: 40px;
+}
+
+.link {
+  color: white;
+  text-decoration: none;
+}

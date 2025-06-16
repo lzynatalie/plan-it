@@ -3,7 +3,9 @@ import { useAuthContext } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { AuthError } from "@supabase/supabase-js";
 
-const Home = () => {
+import Header from "../../components/header/Header";
+
+const HomePage = () => {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,7 @@ const Home = () => {
 
   return (
     <div>
+      <Header />
       <h1>Home</h1>
       <h2>Welcome, {displayName}</h2>
       <button onClick={handleLogout} disabled={loading}>
@@ -49,4 +52,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default HomePage;

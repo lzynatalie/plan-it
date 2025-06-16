@@ -1,21 +1,20 @@
 import React, { useState } from "react";
-import "./LoginRegister.css";
-import { Link } from "react-router-dom";
-import { useAuthContext } from "../../context/AuthContext";
+import styles from "../Login.module.css";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../../context/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEnvelope, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 
-const Register = () => {
-  const [email, setEmail] = useState("");
+const UpdatePasswordPage = () => {
   const [password, setPassword] = useState("");
   const [passwordAgain, setPasswordAgain] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { session, registerNewUser } = useAuthContext();
+  const { session, updatePassword } = useAuthContext();
+  const navigate = useNavigate();
 
   const confirmPassword = (password: string, passwordAgain: string) => {
     if (passwordAgain !== password) {
@@ -23,19 +22,17 @@ const Register = () => {
     }
   };
 
-  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleChangePassword = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
-    setMessage("");
     setError("");
     setLoading(true);
 
     try {
       confirmPassword(password, passwordAgain);
-      await registerNewUser(email, password);
-      setEmail("");
-      setPassword("");
-      setPasswordAgain("");
-      setMessage("A confirmation email has been sent to " + email);
+      await updatePassword(password);
+      navigate("/login");
     } catch (error) {
       if (error instanceof AuthError || error instanceof Error) {
         setError(error.message);
@@ -47,18 +44,8 @@ const Register = () => {
 
   return (
     <div className="container">
-      <form action="" onSubmit={handleRegister}>
-        <h1>Register</h1>
-        <div className="input">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faEnvelope} />
-        </div>
+      <form action="" onSubmit={handleChangePassword}>
+        <h1>Reset Password</h1>
         <div className="input">
           <input
             type="password"
@@ -80,16 +67,12 @@ const Register = () => {
           <FontAwesomeIcon className="icon" icon={faLock} />
         </div>
 
-        <div className="error">{message && <p>{message}</p>}</div>
-
         <button type="submit" disabled={loading}>
-          Register
+          Submit
         </button>
 
         <div className="navigate">
-          <p>
-            Already have an account? <Link to="/login">Login</Link>
-          </p>
+          <Link to="/login">Return to Login</Link>
         </div>
 
         <div className="error">{error && <p>{error}</p>}</div>
@@ -98,4 +81,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default UpdatePasswordPage;

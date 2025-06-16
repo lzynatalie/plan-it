@@ -1,7 +1,13 @@
-import supabase from '../config/supabaseClient';
+import {supabase} from '../config/supabaseClient';
+
+export type EventData = {
+  title: string;
+  start_time: string;
+  end_time: string;
+};
 
 //fetching user 
-async function getUser() {
+export async function getUser() {
     const { 
         data: { user},
         error
@@ -17,7 +23,7 @@ async function getUser() {
 }
 
 //fetching events for specific user(for displaying, usage etc)
-async function getEvents(userID) {
+export async function getEvents(userID: string): Promise<EventData[]> {
     const { data, error } = await supabase
     .from('User Calendars')
     .select('*')
@@ -33,7 +39,7 @@ async function getEvents(userID) {
 
 
 //adding events
-async function addEvent(eventData) {
+export async function addEvent(eventData: EventData & { user_id: string }) {
     const { data, error } = await supabase
     .from('User Calendars')
     .insert([eventData]);
@@ -50,7 +56,7 @@ async function addEvent(eventData) {
 }
 
 //deleting events, use ID instead of name because might have same names for two different events e.g. Band Practice
-async function deleteEvent(eventID) {
+export async function deleteEvent(eventID: string) {
     const { data, error } = await supabase
     .from('User Calendars')
     .delete()
@@ -62,7 +68,7 @@ async function deleteEvent(eventID) {
     }
 }
 
-async function updateEvent(eventID, updatedData) {
+export async function updateEvent(eventID: string, updatedData: EventData & { user_id: string }) {
     const { data, error } = await supabase
     .from('User Calendars')
     .update(updatedData)
@@ -73,5 +79,3 @@ async function updateEvent(eventID, updatedData) {
         throw new Error(error.message);
     }
 }
-
-export default calendarService;

@@ -1,9 +1,12 @@
-import Login from "./components/login-register/Login";
+import HomePage from "./pages/home/HomePage";
+import PrivateRoute from "./components/private-route/PrivateRoute";
 
 function App() {
   return (
     <div className="App">
-      <Login />
+      <PrivateRoute>
+        <HomePage />
+      </PrivateRoute>
     </div>
   );
 }

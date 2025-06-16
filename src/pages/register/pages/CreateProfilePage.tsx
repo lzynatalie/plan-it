@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import "./LoginRegister.css";
+import styles from "../Register.module.css";
 import { useNavigate } from "react-router-dom";
-import { useAuthContext } from "../../context/AuthContext";
+import { useAuthContext } from "../../../context/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 
-const CreateProfile = () => {
+const CreateProfilePage = () => {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
@@ -70,4 +70,4 @@ const CreateProfile = () => {
   );
 };
 
-export default CreateProfile;
+export default CreateProfilePage;

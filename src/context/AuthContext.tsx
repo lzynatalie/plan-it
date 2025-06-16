@@ -6,7 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { AuthError, Session, User, WeakPassword } from "@supabase/supabase-js";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../config/supabaseClient";
 
 type Auth = {
   session: Session | null | undefined;
