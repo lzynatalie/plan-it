@@ -7,7 +7,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
 
-  const handleLogin = (event) => {
+  const handleLogin = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     //TODO: Will eventually add in full login logic here. But for now,
     //will just ask user whether they want to import calendar upon logging in
