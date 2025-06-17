@@ -3,9 +3,14 @@ import Header from "../../components/header/Header";
 
 const VenuesPage = () => {
   return (
-    <div>
+    <div className="container">
       <Header />
-      Venues
+
+      <div className="main">
+        <h1>Venues</h1>
+
+        <div className="box">No venues yet</div>
+      </div>
     </div>
   );
 };

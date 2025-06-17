@@ -46,54 +46,63 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="container">
-      <form action="" onSubmit={handleRegister}>
-        <h1>Register</h1>
-        <div className="input">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faEnvelope} />
-        </div>
-        <div className="input">
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faLock} />
-        </div>
-        <div className="input">
-          <input
-            type="password"
-            placeholder="Re-enter your password"
-            value={passwordAgain}
-            onChange={(e) => setPasswordAgain(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faLock} />
-        </div>
+    <div className={styles.hero}>
+      <div className={styles.container}>
+        <form action="" onSubmit={handleRegister}>
+          <h1>Register</h1>
+          <div className={styles.input}>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faEnvelope} />
+          </div>
+          <div className={styles.input}>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faLock} />
+          </div>
+          <div className={styles.input}>
+            <input
+              type="password"
+              placeholder="Re-enter your password"
+              value={passwordAgain}
+              onChange={(e) => setPasswordAgain(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faLock} />
+          </div>
 
-        <div className="error">{message && <p>{message}</p>}</div>
+          {message && (
+            <div className={styles.error}>
+              <p>{message}</p>
+            </div>
+          )}
+          {error && (
+            <div className={styles.error}>
+              <p>{error}</p>
+            </div>
+          )}
 
-        <button type="submit" disabled={loading}>
-          Register
-        </button>
+          <button type="submit" disabled={loading}>
+            Register
+          </button>
 
-        <div className="navigate">
-          <p>
-            Already have an account? <Link to="/login">Login</Link>
-          </p>
-        </div>
-
-        <div className="error">{error && <p>{error}</p>}</div>
-      </form>
+          <div className={styles.link}>
+            <p>
+              Already have an account? <Link to="/login">Login</Link>
+            </p>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

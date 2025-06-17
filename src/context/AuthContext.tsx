@@ -80,12 +80,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       throw new AuthError("Invalid email address");
     }
 
-    const { data, status } = await supabase
+    const { data, error } = await supabase
       .from("profile")
       .select("user_email")
       .eq("user_email", email);
 
-    if (status !== 200 || !data) {
+    if (error) {
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -102,7 +102,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * Throws an AuthError if email does not exist
    *
    * @param usernameOrEmail
-   * @returns user_email wrapped in a Promise
+   * @returns user_email
    */
   const getEmail = async (usernameOrEmail: string): Promise<string> => {
     const isEmail = usernameOrEmail.includes("@");
@@ -111,12 +111,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       return usernameOrEmail;
     }
 
-    const { data, status } = await supabase
+    const { data, error } = await supabase
       .from("profile")
       .select("user_email")
       .eq("username", usernameOrEmail);
 
-    if (status !== 200 || !data) {
+    if (error) {
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -135,12 +135,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * @param username
    */
   const checkUsername = async (username: string) => {
-    const { data, status } = await supabase
+    const { data, error } = await supabase
       .from("profile")
       .select("username")
       .eq("username", username);
 
-    if (status !== 200 || !data) {
+    if (error) {
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -150,22 +150,22 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /**
-   * Returns the user's username, display name, and email
+   * Fetches the user's username, display name, and email
    *
    * @param column
-   * @returns a Profile object
+   * @returns profile data
    */
   const getProfile = async (): Promise<Profile> => {
     if (!user) {
       throw new Error("Unable to find user.");
     }
 
-    const { data, status } = await supabase
+    const { data, error } = await supabase
       .from("profile")
       .select()
       .eq("user_id", user.id);
 
-    if (status !== 200 || !data) {
+    if (error) {
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -238,14 +238,13 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Unable to find user.");
     }
 
-    const { status } = await supabase.from("profile").insert({
-      user_id: user.id,
+    const { error } = await supabase.from("profile").insert({
       username: username,
       display_name: displayName,
       user_email: user.email,
     });
 
-    if (status !== 201) {
+    if (error) {
       throw new Error("Something went wrong. Please try again later.");
     }
   };
@@ -259,7 +258,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     await checkEmail(email, true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/change-password",
+      redirectTo: "http://localhost:3000/update-password",
     });
 
     if (error) {

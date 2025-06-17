@@ -1,3 +1,4 @@
+import "./App.css";
 import HomePage from "./pages/home/HomePage";
 import PrivateRoute from "./components/private-route/PrivateRoute";
 

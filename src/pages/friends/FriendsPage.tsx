@@ -3,9 +3,14 @@ import Header from "../../components/header/Header";
 
 const FriendsPage = () => {
   return (
-    <div>
+    <div className="container">
       <Header />
-      Friends
+
+      <div className="main">
+        <h1>Friends</h1>
+
+        <div className="box">No friends yet</div>
+      </div>
     </div>
   );
 };

@@ -1,16 +1,25 @@
 .header {
+  position: sticky;
+  top: 0;
   height: 64px;
   width: 100%;
+  background-color: black;
+  border-bottom: 0.1px solid gray;
   display: flex;
   align-items: center;
-  padding-left: 20px;
   gap: 20px;
-  border-bottom: 0.1px solid white;
+  padding-left: 20px;
 }
 
 .logo {
   height: 40px;
   width: 40px;
+  margin-right: -10px;
+}
+
+.name {
+  font-family: "Michroma";
+  font-size: 20px;
 }
 
 .link {

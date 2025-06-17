@@ -3,9 +3,14 @@ import Header from "../../components/header/Header";
 
 const GroupsPage = () => {
   return (
-    <div>
+    <div className="container">
       <Header />
-      Calendar
+
+      <div className="main">
+        <h1>Groups</h1>
+
+        <div className="box">No groups yet</div>
+      </div>
     </div>
   );
 };

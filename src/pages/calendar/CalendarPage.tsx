@@ -1,140 +1,156 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/header/Header";
+import { useAuthContext } from "../../context/AuthContext";
 import {
-  EventData,
-  getUser,
+  UserEvent,
+  UserEventData,
   addEvent,
   deleteEvent,
-  updateEvent,
   getEvents,
 } from "../../services/calendarService";
+import { PostgrestError } from "@supabase/supabase-js";
+import { useNavigate } from "react-router-dom";
 
 const CalendarPage = () => {
-  const [userID, setUserID] = useState("");
-  const [eventData, setEventData] = useState<EventData>({
+  const [eventData, setEventData] = useState<UserEventData[]>([]);
+  const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
     start_time: "",
     end_time: "",
   });
-  //to track the event to be replaced, use null to track whether there is such an event
-  const [updatedEventData, setUpdatedEventData] = useState<
-    (EventData & { id: string }) | null
+  // to track the event to be replaced, use null to track whether there is such an event
+  const [updatedEvent, setUpdatedEvent] = useState<
+    (UserEvent & { id: string }) | null
   >(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  //only fetch events and user info once, when the page first loads
+  // user will not be undefined as the pages are only accessible by authenticated users
+  const { user } = useAuthContext();
+  const navigate = useNavigate();
+
+  const fetchEvents = async () => {
+    const eventData = await getEvents(user!.id);
+    setEventData(eventData);
+  };
+
+  // only fetch events and user info once, when the page first loads
   useEffect(() => {
-    async function fetchUserAndEvents() {
-      const user = await getUser();
-
-      if (!user) {
-        console.error("User not signed in.");
-        //don't throw error because user may use app without signing in
-        return;
-      }
-
-      setUserID(user.id);
-      const eventData = await getEvents(user.id);
-      setEventData(eventData[0]);
-    }
-
-    fetchUserAndEvents();
+    fetchEvents();
   }, []);
 
-  //refresh to update calendar every time an event added, updated, deleted etc
-  const refreshEvents = async () => {
-    const data = await getEvents(userID);
-    setEventData(data[0]);
-  };
-
-  const handleAddEvent = async () => {
-    if (
-      !userID ||
-      !eventData.title ||
-      !eventData.start_time ||
-      !eventData.end_time
-    )
-      return;
+  const handleAddEvent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
-      await addEvent({ ...eventData, user_id: userID });
-      await refreshEvents();
-      //event added, set to clean slate for next event
-      setEventData({
+      await addEvent(newEvent);
+      await fetchEvents();
+      // event added, set to clean slate for next event
+      setNewEvent({
         title: "",
         start_time: "",
         end_time: "",
       });
-    } catch (e) {
-      if (e instanceof Error) {
-        console.error("Failed to add event:", e.message);
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        setError(error.message);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleUpdateEvent = async () => {
-    //if event to update does not exist
-    if (!updatedEventData) return;
-
-    try {
-      //replace the event to be updated with the event data the user keys in
-      await updateEvent(updatedEventData.id, { ...eventData, user_id: userID });
-      await refreshEvents();
-      setUpdatedEventData(null);
-      setEventData({
-        title: "",
-        start_time: "",
-        end_time: "",
-      });
-    } catch (e) {
-      if (e instanceof Error) {
-        console.error("Failed to update event:", e.message);
-      }
-    }
+  const handleViewEvent = async (eventId: string) => {
+    navigate(`/events/${eventId}`);
   };
 
-  const handleDeleteEvent = async (eventID: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
     try {
-      await deleteEvent(eventID);
-      await refreshEvents();
-    } catch (e) {
-      if (e instanceof Error) {
-        console.error("Failed to delete event:", e.message);
+      await deleteEvent(eventId);
+      await fetchEvents();
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        console.error("Failed to delete event:", error.message);
       }
     }
   };
 
   return (
-    <div>
+    <div className="container">
       <Header />
-      <h2> Your Plan-It!</h2>
 
-      <input
-        type="text"
-        placeholder="Title"
-        value={eventData.title}
-        onChange={(e) => setEventData({ ...eventData, title: e.target.value })}
-      />
+      <div className="main">
+        <h1>Calendar</h1>
 
-      <input
-        type="datetime-local"
-        value="eventData.start_time"
-        onChange={(e) =>
-          setEventData({ ...eventData, start_time: e.target.value })
-        }
-      />
+        <div className="row">
+          <div className="box column">
+            {eventData.length ? (
+              <ul>
+                {eventData.map(({ id, title, start_time, end_time }) => (
+                  <li key={id}>
+                    <div className="row">
+                      <div className="column">
+                        <p>{title}</p>
+                        <p>Start: {start_time}</p>
+                        <p>End: {end_time}</p>
+                      </div>
 
-      <input
-        type="datetime-local"
-        value={eventData.end_time}
-        onChange={(e) =>
-          setEventData({ ...eventData, end_time: e.target.value })
-        }
-      />
+                      <button onClick={(e) => handleViewEvent(id)}>View</button>
+                      <button onClick={(e) => handleDeleteEvent(id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              "No events yet"
+            )}
+          </div>
 
-      <button onClick={handleAddEvent}>Add Event</button>
-      <button onClick={handleUpdateEvent} disabled={!updatedEventData}>
-        Update Event
-      </button>
+          <div className="box column">
+            <div className="column">
+              <form className="column" action="" onSubmit={handleAddEvent}>
+                <input
+                  type="text"
+                  placeholder="Title"
+                  value={newEvent.title}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, title: e.target.value })
+                  }
+                  required
+                />
+
+                <input
+                  type="datetime-local"
+                  value={newEvent.start_time}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, start_time: e.target.value })
+                  }
+                  required
+                />
+
+                <input
+                  type="datetime-local"
+                  value={newEvent.end_time}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, end_time: e.target.value })
+                  }
+                  required
+                />
+
+                <div className="error">{error && <p>{error}</p>}</div>
+
+                <button type="submit" disabled={loading}>
+                  Add Event
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
