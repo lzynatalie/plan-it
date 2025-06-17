@@ -1,11 +1,5 @@
-/* * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  background: url(../assets/background.png) no-repeat;
+.hero {
+  background: url(../../components/assets/background.png) no-repeat;
   background-size: cover;
   background-position: center;
   display: flex;
@@ -13,7 +7,6 @@ body {
   align-items: center;
   min-height: 100vh;
 }
-*/
 
 .container {
   width: 420px;
@@ -31,7 +24,7 @@ body {
   text-align: center;
 }
 
-.container .input {
+.input {
   position: relative;
   width: 100%;
   height: 50px;
@@ -63,25 +56,31 @@ body {
   transform: translateY(-50%);
 }
 
-.container .forgot {
+.container .forgotPassword {
   display: flex;
   justify-content: right;
   font-size: 14.5px;
   margin: -15px 0 15px;
 }
 
-.forgot label input {
-  accent-color: #fff;
-  margin-right: 4px;
-}
-
-.forgot a {
+.forgotPassword a {
   color: #fff;
   text-decoration: none;
 }
 
-.forgot a:hover {
+.forgotPassword a:hover {
   text-decoration: underline;
+}
+
+.container .error {
+  width: 100%;
+  height: fit-content;
+  background-color: palevioletred;
+  border: 3px solid red;
+  border-radius: 10px;
+  text-align: center;
+  margin: -10px 0 20px;
+  padding: 10px;
 }
 
 .container button {
@@ -98,34 +97,18 @@ body {
   font-weight: 700;
 }
 
-.container .navigate {
+.container .link {
   font-size: 14.5px;
   text-align: center;
   margin: 20px 0 15px;
 }
 
-.navigate p a {
+.link p a {
   color: #fff;
   text-decoration: none;
   font-weight: 600;
 }
 
-.navigate p a:hover {
+.link p a:hover {
   text-decoration: underline;
-}
-
-.navigate a {
-  color: #fff;
-  text-decoration: none;
-}
-
-.navigate a:hover {
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.container .error {
-  font-size: 14.5px;
-  text-align: center;
-  color: #000;
 }

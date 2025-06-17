@@ -1,81 +1,101 @@
-import {supabase} from '../config/supabaseClient';
+import { supabase } from "../config/supabaseClient";
 
-export type EventData = {
+export type UserEvent = {
   title: string;
   start_time: string;
   end_time: string;
 };
 
-//fetching user 
-export async function getUser() {
-    const { 
-        data: { user},
-        error
-    } = await supabase.auth.getUser();
+export type UserEventData = UserEvent & {
+  id: string;
+  user_id: string;
+};
 
-    if (!user || error) {
-        console.error("User not signed in.")
-        //return null instead of throwing an error because users can still use app without signing in
-        return null;
-    }
+/**
+ * Fetches events created by the user
+ *
+ * @returns list of user_event data
+ */
+export const getEvents = async (userID: string): Promise<UserEventData[]> => {
+  const { data, error } = await supabase
+    .from("user_event")
+    .select()
+    .eq("user_id", userID)
+    .order("start_time");
 
-    return user;
-}
+  if (error) {
+    console.error("Failed to fetch events:", error.message);
+    throw error;
+  }
 
-//fetching events for specific user(for displaying, usage etc)
-export async function getEvents(userID: string): Promise<EventData[]> {
-    const { data, error } = await supabase
-    .from('User Calendars')
-    .select('*')
-    .eq('user_id', userID);
+  return data;
+};
 
-    if (error) {
-        console.error("Failed to fetch events:", error);
-        throw new Error(error.message);
-    }
+/**
+ * Fetches the details of an event given its id
+ *
+ * @param eventId
+ * @returns user_event data
+ */
+export const getEvent = async (eventId: string): Promise<UserEventData> => {
+  const { data, error } = await supabase
+    .from("user_event")
+    .select()
+    .eq("id", eventId);
 
-    return data;
-}
+  if (error) {
+    console.error("Failed to fetch event:", error.message);
+    throw error;
+  }
 
+  return data[0];
+};
 
-//adding events
-export async function addEvent(eventData: EventData & { user_id: string }) {
-    const { data, error } = await supabase
-    .from('User Calendars')
-    .insert([eventData]);
+/**
+ * Adds an event created by the user
+ *
+ * @param event
+ */
+export const addEvent = async (event: UserEvent) => {
+  const { error } = await supabase.from("user_event").insert([event]);
 
-    if (error) {
-        //technical error for supabase, dev console etc
-        console.error("Failed to add event:", error);
-        //user-friendly error for React
-        throw new Error(error.message);
-    }
+  if (error) {
+    console.error("Failed to add event:", error.message);
+    throw error;
+  }
+};
 
-    //supabase automatically returns new row created, different from delete and update
-    return data;
-}
-
-//deleting events, use ID instead of name because might have same names for two different events e.g. Band Practice
-export async function deleteEvent(eventID: string) {
-    const { data, error } = await supabase
-    .from('User Calendars')
+/**
+ * Deletes an event given its id
+ *
+ * @param eventId
+ */
+export const deleteEvent = async (eventId: string) => {
+  const { error } = await supabase
+    .from("user_event")
     .delete()
-    .eq('id', eventID);
+    .eq("id", eventId);
 
-    if (error) {
-        console.error("Failed to delete event:", error);
-        throw new Error(error.message);
-    }
-}
+  if (error) {
+    console.error("Failed to delete event:", error.message);
+    throw error;
+  }
+};
 
-export async function updateEvent(eventID: string, updatedData: EventData & { user_id: string }) {
-    const { data, error } = await supabase
-    .from('User Calendars')
-    .update(updatedData)
-    .eq('id', eventID);
+/**
+ * Updates an event given its id and new details
+ *
+ * @param eventId
+ * @param updatedEvent
+ */
+export const updateEvent = async (eventId: string, updatedEvent: UserEvent) => {
+  const { error } = await supabase
+    .from("user_event")
+    .update(updatedEvent)
+    .eq("id", eventId);
 
-    if (error) {
-        console.error("Failed to update event:", error);
-        throw new Error(error.message);
-    }
-}
+  if (error) {
+    console.error("Failed to update event:", error.message);
+    throw error;
+  }
+};

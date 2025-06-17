@@ -8,9 +8,10 @@ import ResetPasswordPage from "./pages/login/pages/ResetPasswordPage";
 import UpdatePasswordPage from "./pages/login/pages/UpdatePasswordPage";
 import CreateProfilePage from "./pages/register/pages/CreateProfilePage";
 import CalendarPage from "./pages/calendar/CalendarPage";
+import EventsPage from "./pages/events/EventsPage";
+import EventPage from "./pages/events/pages/EventPage";
 import FriendsPage from "./pages/friends/FriendsPage";
 import GroupsPage from "./pages/groups/GroupsPage";
-import EventsPage from "./pages/events/EventsPage";
 import VenuesPage from "./pages/venues/VenuesPage";
 
 export const router = createBrowserRouter([
@@ -51,6 +52,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/events",
+    element: (
+      <PrivateRoute>
+        <EventsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/events/:eventId",
+    element: (
+      <PrivateRoute>
+        <EventPage />
+      </PrivateRoute>
+    ),
+  },
+  {
     path: "/friends",
     element: (
       <PrivateRoute>
@@ -63,14 +80,6 @@ export const router = createBrowserRouter([
     element: (
       <PrivateRoute>
         <GroupsPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/events",
-    element: (
-      <PrivateRoute>
-        <EventsPage />
       </PrivateRoute>
     ),
   },

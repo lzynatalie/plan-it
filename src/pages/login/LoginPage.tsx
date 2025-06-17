@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import style from "./Login.module.css";
+import styles from "./Login.module.css";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import { AuthError } from "@supabase/supabase-js";
@@ -34,47 +34,56 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="container">
-      <form action="" onSubmit={handleLogin}>
-        <h1>Login</h1>
-        <div className="input">
-          <input
-            type="text"
-            placeholder={"Username / Email"}
-            value={usernameOrEmail}
-            onChange={(e) => setUsernameOrEmail(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faUser} />
-        </div>
-        <div className="input">
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faLock} />
-        </div>
-        <div className="forgot">
-          <p>
-            <Link to="/reset-password">Forgot password?</Link>
-          </p>
-        </div>
+    <div className={styles.hero}>
+      <div className={styles.container}>
+        <form action="" onSubmit={handleLogin}>
+          <h1>Login</h1>
 
-        <button type="submit" disabled={loading}>
-          Login
-        </button>
+          <div className={styles.input}>
+            <input
+              type="text"
+              placeholder={"Username / Email"}
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faUser} />
+          </div>
 
-        <div className="navigate">
-          <p>
-            Don't have an account? <Link to="/register">Register</Link>
-          </p>
-        </div>
+          <div className={styles.input}>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faLock} />
+          </div>
 
-        <div className="error">{error && <p>{error}</p>}</div>
-      </form>
+          <div className={styles.forgotPassword}>
+            <p>
+              <Link to="/reset-password">Forgot password?</Link>
+            </p>
+          </div>
+
+          {error && (
+            <div className={styles.error}>
+              <p>{error}</p>
+            </div>
+          )}
+
+          <button type="submit" disabled={loading}>
+            Login
+          </button>
+
+          <div className={styles.link}>
+            <p>
+              Don't have an account? <Link to="/register">Register</Link>
+            </p>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
