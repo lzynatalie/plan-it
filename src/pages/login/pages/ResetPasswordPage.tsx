@@ -35,32 +35,41 @@ const ResetPasswordPage = () => {
   };
 
   return (
-    <div className="container">
-      <form action="" onSubmit={handleReset}>
-        <h1>Reset Password</h1>
-        <div className="input">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faEnvelope} />
-        </div>
+    <div className={styles.hero}>
+      <div className={styles.container}>
+        <form action="" onSubmit={handleReset}>
+          <h1>Reset Password</h1>
+          <div className={styles.input}>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faEnvelope} />
+          </div>
 
-        <div className="error">{message && <p>{message}</p>}</div>
+          {message && (
+            <div className={styles.message}>
+              <p>{message}</p>
+            </div>
+          )}
+          {error && (
+            <div className={styles.error}>
+              <p>{error}</p>
+            </div>
+          )}
 
-        <button type="submit" disabled={loading}>
-          Submit
-        </button>
+          <button type="submit" disabled={loading}>
+            Submit
+          </button>
 
-        <div className="navigate">
-          <Link to="/login">Return to Login</Link>
-        </div>
-
-        <div className="error">{error && <p>{error}</p>}</div>
-      </form>
+          <div className={styles.link}>
+            <Link to="/login">Return to Login</Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

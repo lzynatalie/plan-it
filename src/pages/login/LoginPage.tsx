@@ -13,7 +13,7 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { session, loginUser } = useAuthContext();
+  const { session, loginUser, getProfile } = useAuthContext();
   const navigate = useNavigate();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -22,8 +22,13 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      await loginUser(usernameOrEmail, password);
-      navigate("/home");
+      const { user } = await loginUser(usernameOrEmail, password);
+      const profile = await getProfile(user);
+      if (profile) {
+        navigate("/home");
+      } else {
+        navigate("/create-profile");
+      }
     } catch (error) {
       if (error instanceof AuthError || error instanceof Error) {
         setError(error.message);

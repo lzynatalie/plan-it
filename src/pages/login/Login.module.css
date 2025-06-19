@@ -60,7 +60,7 @@
   display: flex;
   justify-content: right;
   font-size: 14.5px;
-  margin: -15px 0 15px;
+  margin: -20px 10px 20px;
 }
 
 .forgotPassword a {
@@ -72,13 +72,26 @@
   text-decoration: underline;
 }
 
+.container .message {
+  width: 100%;
+  height: fit-content;
+  background-color: rgb(0, 255, 0, 0.3);
+  border: 2.5px solid rgb(0, 255, 0, 0.3);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 14.5px;
+  margin: -10px 0 20px;
+  padding: 10px;
+}
+
 .container .error {
   width: 100%;
   height: fit-content;
-  background-color: palevioletred;
-  border: 3px solid red;
+  background-color: rgb(255, 0, 0, 0.4);
+  border: 2.5px solid rgb(255, 0, 0, 0.4);
   border-radius: 10px;
   text-align: center;
+  font-size: 14.5px;
   margin: -10px 0 20px;
   padding: 10px;
 }
@@ -110,5 +123,14 @@
 }
 
 .link p a:hover {
+  text-decoration: underline;
+}
+
+.link a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.link a:hover {
   text-decoration: underline;
 }
