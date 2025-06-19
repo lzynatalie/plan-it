@@ -23,7 +23,7 @@ const LoginPage = () => {
 
     try {
       const { user } = await loginUser(usernameOrEmail, password);
-      const profile = await getProfile(user);
+      const profile = await getProfile(user.id);
       if (profile) {
         navigate("/home");
       } else {

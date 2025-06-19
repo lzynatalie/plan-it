@@ -12,7 +12,7 @@ type Auth = {
   session: Session | null | undefined;
   user: User | undefined;
   loading: boolean;
-  getProfile: (user?: User) => Promise<Profile>;
+  getProfile: (userId?: string) => Promise<Profile>;
   registerNewUser: RegisterHandler;
   loginUser: LoginHandler;
   logoutUser: LogoutHandler;
@@ -157,15 +157,19 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * @param column
    * @returns user data
    */
-  const getProfile = async (user?: User): Promise<Profile> => {
-    if (!user) {
-      throw new Error("Unable to find user.");
+  const getProfile = async (userId?: string): Promise<Profile> => {
+    if (!userId) {
+      if (!user) {
+        throw new Error("Unable to find user.");
+      }
+
+      userId = user.id;
     }
 
     const { data, error } = await supabase
       .from("user")
       .select()
-      .eq("id", user.id);
+      .eq("id", userId);
 
     if (error) {
       console.error("An error occurred:", error.message);
