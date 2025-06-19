@@ -36,36 +36,42 @@ const CreateProfilePage = () => {
   };
 
   return (
-    <div className="container">
-      <form action="" onSubmit={handleCreateProfile}>
-        <h1>Create Profile</h1>
-        <div className="input">
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faUser} />
-        </div>
-        <div className="input">
-          <input
-            type="text"
-            placeholder="Name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faUser} />
-        </div>
+    <div className={styles.hero}>
+      <div className={styles.container}>
+        <form action="" onSubmit={handleCreateProfile}>
+          <h1>Create Profile</h1>
+          <div className={styles.input}>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faUser} />
+          </div>
+          <div className={styles.input}>
+            <input
+              type="text"
+              placeholder="Name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faUser} />
+          </div>
 
-        <button type="submit" disabled={loading}>
-          Continue
-        </button>
+          {error && (
+            <div className={styles.error}>
+              <p>{error}</p>
+            </div>
+          )}
 
-        <div className="error">{error && <p>{error}</p>}</div>
-      </form>
+          <button type="submit" disabled={loading}>
+            Continue
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

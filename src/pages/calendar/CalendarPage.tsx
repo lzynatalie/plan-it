@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../components/header/Header";
-import { useAuthContext } from "../../context/AuthContext";
 import {
   UserEvent,
-  UserEventData,
+  EventData,
   addEvent,
   deleteEvent,
   getEvents,
@@ -12,25 +11,20 @@ import { PostgrestError } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 
 const CalendarPage = () => {
-  const [eventData, setEventData] = useState<UserEventData[]>([]);
+  const [eventData, setEventData] = useState<EventData[]>([]);
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
+    description: "",
     start_time: "",
     end_time: "",
   });
-  // to track the event to be replaced, use null to track whether there is such an event
-  const [updatedEvent, setUpdatedEvent] = useState<
-    (UserEvent & { id: string }) | null
-  >(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // user will not be undefined as the pages are only accessible by authenticated users
-  const { user } = useAuthContext();
   const navigate = useNavigate();
 
   const fetchEvents = async () => {
-    const eventData = await getEvents(user!.id);
+    const eventData = await getEvents();
     setEventData(eventData);
   };
 
@@ -50,6 +44,7 @@ const CalendarPage = () => {
       // event added, set to clean slate for next event
       setNewEvent({
         title: "",
+        description: "",
         start_time: "",
         end_time: "",
       });
@@ -85,30 +80,10 @@ const CalendarPage = () => {
         <h1>Calendar</h1>
 
         <div className="row">
-          <div className="box column">
-            {eventData.length ? (
-              <ul>
-                {eventData.map(({ id, title, start_time, end_time }) => (
-                  <li key={id}>
-                    <div className="row">
-                      <div className="column">
-                        <p>{title}</p>
-                        <p>Start: {start_time}</p>
-                        <p>End: {end_time}</p>
-                      </div>
-
-                      <button onClick={(e) => handleViewEvent(id)}>View</button>
-                      <button onClick={(e) => handleDeleteEvent(id)}>
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              "No events yet"
-            )}
-          </div>
+          <Calendar
+            values={{ eventData }}
+            functions={{ handleViewEvent, handleDeleteEvent }}
+          />
 
           <div className="box column">
             <div className="column">
@@ -121,6 +96,15 @@ const CalendarPage = () => {
                     setNewEvent({ ...newEvent, title: e.target.value })
                   }
                   required
+                />
+
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={newEvent.description}
+                  onChange={(e) =>
+                    setNewEvent({ ...newEvent, description: e.target.value })
+                  }
                 />
 
                 <input
@@ -151,6 +135,47 @@ const CalendarPage = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+type CalendarProps = {
+  values: {
+    eventData: EventData[];
+  };
+  functions: {
+    handleViewEvent: (eventId: string) => Promise<void>;
+    handleDeleteEvent: (eventId: string) => Promise<void>;
+  };
+};
+
+const Calendar = ({
+  values: { eventData },
+  functions: { handleViewEvent, handleDeleteEvent },
+}: CalendarProps) => {
+  return (
+    <div className="box column">
+      {eventData.length ? (
+        <ul>
+          {eventData.map(({ id, title, description, start_time, end_time }) => (
+            <li key={id}>
+              <div className="box row">
+                <div className="column">
+                  <p>{title}</p>
+                  {description && <p>{description}</p>}
+                  <p>Start: {start_time}</p>
+                  <p>End: {end_time}</p>
+                </div>
+
+                <button onClick={(e) => handleViewEvent(id)}>View</button>
+                <button onClick={(e) => handleDeleteEvent(id)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        "No events yet"
+      )}
     </div>
   );
 };

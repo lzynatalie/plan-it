@@ -43,40 +43,46 @@ const UpdatePasswordPage = () => {
   };
 
   return (
-    <div className="container">
-      <form action="" onSubmit={handleChangePassword}>
-        <h1>Reset Password</h1>
-        <div className="input">
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faLock} />
-        </div>
-        <div className="input">
-          <input
-            type="password"
-            placeholder="Re-enter your password"
-            value={passwordAgain}
-            onChange={(e) => setPasswordAgain(e.target.value)}
-            required
-          />
-          <FontAwesomeIcon className="icon" icon={faLock} />
-        </div>
+    <div className={styles.hero}>
+      <div className={styles.container}>
+        <form action="" onSubmit={handleChangePassword}>
+          <h1>Reset Password</h1>
+          <div className={styles.input}>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faLock} />
+          </div>
+          <div className={styles.input}>
+            <input
+              type="password"
+              placeholder="Re-enter your password"
+              value={passwordAgain}
+              onChange={(e) => setPasswordAgain(e.target.value)}
+              required
+            />
+            <FontAwesomeIcon className={styles.icon} icon={faLock} />
+          </div>
 
-        <button type="submit" disabled={loading}>
-          Submit
-        </button>
+          {error && (
+            <div className={styles.error}>
+              <p>{error}</p>
+            </div>
+          )}
 
-        <div className="navigate">
-          <Link to="/login">Return to Login</Link>
-        </div>
+          <button type="submit" disabled={loading}>
+            Submit
+          </button>
 
-        <div className="error">{error && <p>{error}</p>}</div>
-      </form>
+          <div className={styles.link}>
+            <Link to="/login">Return to Login</Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

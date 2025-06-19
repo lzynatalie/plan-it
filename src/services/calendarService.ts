@@ -1,26 +1,28 @@
 import { supabase } from "../config/supabaseClient";
 
-export type UserEvent = {
+export type EventData = {
+  id: string;
+  creator_id: string;
+  group_id?: string;
   title: string;
-  start_time: string;
-  end_time: string;
+  description?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
-export type UserEventData = UserEvent & {
-  id: string;
-  user_id: string;
-};
+export type UserEvent = Omit<EventData, "id" | "creator_id" | "group_id">;
+
+export type GroupEvent = Omit<EventData, "id" | "creator_id">;
 
 /**
- * Fetches events created by the user
+ * Fetches events accessible by the user
  *
- * @returns list of user_event data
+ * @returns list of event data
  */
-export const getEvents = async (userID: string): Promise<UserEventData[]> => {
+export const getEvents = async (): Promise<EventData[]> => {
   const { data, error } = await supabase
-    .from("user_event")
+    .from("event")
     .select()
-    .eq("user_id", userID)
     .order("start_time");
 
   if (error) {
@@ -35,11 +37,11 @@ export const getEvents = async (userID: string): Promise<UserEventData[]> => {
  * Fetches the details of an event given its id
  *
  * @param eventId
- * @returns user_event data
+ * @returns event data
  */
-export const getEvent = async (eventId: string): Promise<UserEventData> => {
+export const getEvent = async (eventId: string): Promise<EventData> => {
   const { data, error } = await supabase
-    .from("user_event")
+    .from("event")
     .select()
     .eq("id", eventId);
 
@@ -57,7 +59,7 @@ export const getEvent = async (eventId: string): Promise<UserEventData> => {
  * @param event
  */
 export const addEvent = async (event: UserEvent) => {
-  const { error } = await supabase.from("user_event").insert([event]);
+  const { error } = await supabase.from("event").insert([event]);
 
   if (error) {
     console.error("Failed to add event:", error.message);
@@ -72,7 +74,7 @@ export const addEvent = async (event: UserEvent) => {
  */
 export const deleteEvent = async (eventId: string) => {
   const { error } = await supabase
-    .from("user_event")
+    .from("event")
     .delete()
     .eq("id", eventId);
 
@@ -90,7 +92,7 @@ export const deleteEvent = async (eventId: string) => {
  */
 export const updateEvent = async (eventId: string, updatedEvent: UserEvent) => {
   const { error } = await supabase
-    .from("user_event")
+    .from("event")
     .update(updatedEvent)
     .eq("id", eventId);
 

@@ -12,7 +12,7 @@ type Auth = {
   session: Session | null | undefined;
   user: User | undefined;
   loading: boolean;
-  getProfile: () => Promise<Profile>;
+  getProfile: (userId?: string) => Promise<Profile>;
   registerNewUser: RegisterHandler;
   loginUser: LoginHandler;
   logoutUser: LogoutHandler;
@@ -22,11 +22,10 @@ type Auth = {
 };
 
 type Profile = {
-  user_id: string;
-  created_at: string;
+  id: string;
   username: string;
   display_name: string;
-  user_email: string;
+  email: string;
 };
 
 type RegisterHandler = (
@@ -81,11 +80,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const { data, error } = await supabase
-      .from("profile")
-      .select("user_email")
-      .eq("user_email", email);
+      .from("user")
+      .select("email")
+      .eq("email", email);
 
     if (error) {
+      console.error("An error occurred:", error.message);
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -102,7 +102,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * Throws an AuthError if email does not exist
    *
    * @param usernameOrEmail
-   * @returns user_email
+   * @returns email
    */
   const getEmail = async (usernameOrEmail: string): Promise<string> => {
     const isEmail = usernameOrEmail.includes("@");
@@ -112,11 +112,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const { data, error } = await supabase
-      .from("profile")
-      .select("user_email")
+      .from("user")
+      .select("email")
       .eq("username", usernameOrEmail);
 
     if (error) {
+      console.error("An error occurred:", error.message);
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -124,7 +125,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       throw new AuthError("Invalid login credentials");
     }
 
-    return data[0].user_email;
+    return data[0].email;
   };
 
   /**
@@ -136,11 +137,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    */
   const checkUsername = async (username: string) => {
     const { data, error } = await supabase
-      .from("profile")
+      .from("user")
       .select("username")
       .eq("username", username);
 
     if (error) {
+      console.error("An error occurred:", error.message);
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -153,19 +155,24 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * Fetches the user's username, display name, and email
    *
    * @param column
-   * @returns profile data
+   * @returns user data
    */
-  const getProfile = async (): Promise<Profile> => {
-    if (!user) {
-      throw new Error("Unable to find user.");
+  const getProfile = async (userId?: string): Promise<Profile> => {
+    if (!userId) {
+      if (!user) {
+        throw new Error("Unable to find user.");
+      }
+
+      userId = user.id;
     }
 
     const { data, error } = await supabase
-      .from("profile")
+      .from("user")
       .select()
-      .eq("user_id", user.id);
+      .eq("id", userId);
 
     if (error) {
+      console.error("An error occurred:", error.message);
       throw new Error("Something went wrong. Please try again later.");
     }
 
@@ -238,13 +245,14 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Unable to find user.");
     }
 
-    const { error } = await supabase.from("profile").insert({
+    const { error } = await supabase.from("user").insert({
       username: username,
       display_name: displayName,
-      user_email: user.email,
+      email: user.email,
     });
 
     if (error) {
+      console.error("An error occurred:", error.message);
       throw new Error("Something went wrong. Please try again later.");
     }
   };

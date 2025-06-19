@@ -82,7 +82,7 @@ const RegisterPage = () => {
           </div>
 
           {message && (
-            <div className={styles.error}>
+            <div className={styles.message}>
               <p>{message}</p>
             </div>
           )}
