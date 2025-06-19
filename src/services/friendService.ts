@@ -2,8 +2,8 @@ import { supabase } from "../config/supabaseClient";
 
 export type Friend = {
     id: number;
-    sender: string;
-    recipient: string;
+    user_id: string;
+    friend_id: string;
     status: "pending" | "accepted" | "declined";
 };
 
@@ -11,7 +11,7 @@ export async function getFriends(userID: string): Promise<Friend[]> {
     const { data, error } = await supabase
     .from("friend")
     .select("*")
-    .or(`sender.eq.${userID},recipient.eq.${userID}`)
+    .or(`user_id.eq.${userID},friend_id.eq.${userID}`)
     .eq("status", "accepted");
 
     if (error) {
@@ -26,7 +26,7 @@ export async function getPendingRequests(userID: string): Promise<Friend[]> {
     const { data, error } = await supabase
     .from("friend")
     .select("*")
-    .eq("recipient", userID)
+    .eq("friend_id", userID)
     .eq("status", "pending");
 
     if (error) {
@@ -37,11 +37,11 @@ export async function getPendingRequests(userID: string): Promise<Friend[]> {
     return data || [];
 }
 
-export async function sendFriendRequest(senderID: string, recipientID: string) {
+export async function sendFriendRequest(user_id: string, friend_id: string) {
     const { data, error } = await supabase
     .from("friend")
     .select("id")
-    .or(`and(sender.eq.${senderID},recipient.eq.${recipientID}).and(sender.eq.${recipientID},recipient.eq.${senderID})`)
+    .or(`and(user_id.eq.${user_id},friend_id.eq.${friend_id}),and(user_id.eq.${friend_id},friend_id.eq.${user_id})`)
     .neq("status", "declined");
 
     if (error) {
@@ -56,7 +56,7 @@ export async function sendFriendRequest(senderID: string, recipientID: string) {
     const { error: insertError } = await supabase
     .from("friend")
     .insert([
-        { sender: senderID, recipient: recipientID, status: "pending" },
+        { user_id: user_id, friend_id: friend_id, status: "pending" },
     ]);
 
     if (insertError) {

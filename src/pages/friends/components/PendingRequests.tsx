@@ -7,8 +7,12 @@ const PendingRequests: React.FC = () => {
   const [requests, setRequests] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  //to track which request ID being processsed and disable accept and decline buttons for these requests while awaiting response
+  const [processingIDs, setProcessingIDs] = useState<number[]>([]);
 
   useEffect(() => {
+    if (!user) return;
+    
     const fetchRequests = async () => {
       try {
         const data = await getPendingRequests(user!.id);
@@ -25,6 +29,9 @@ const PendingRequests: React.FC = () => {
   }, [user]);
 
   const handleResponse = (id: number, status: "accepted" | "declined") => {
+    //mark current frendship request as being processed
+    setProcessingIDs(prev => [...prev, id]);
+
     respondToRequest(id, status)
       .then(() => {
         setRequests((prev) => prev.filter((request) => request.id !== id));
@@ -32,6 +39,10 @@ const PendingRequests: React.FC = () => {
       .catch((error) => {
         console.error(`Failed to ${status} the friend request:`, error.message);
         setErrorMessage(`Failed to ${status} the request. Try again.`);
+      })
+      .finally(() => {
+        //done processing, remove from tracker
+        setProcessingIDs(prev => prev.filter(requestID => requestID !== id));
       });
   };
 
@@ -48,18 +59,20 @@ const PendingRequests: React.FC = () => {
           {requests.map((request) => (
             <li key={request.id} className="p-2 border rounded flex justify-between items-center">
               <span>
-                From: <span className="font-mono">{request.sender}</span>
+                From: <span className="font-mono">{request.user_id}</span>
               </span>
               <div className="space-x-2">
                 <button
                   onClick={() => handleResponse(request.id, "accepted")}
-                  className="px-2 py-1 bg-green-500 text-white rounded"
+                  disabled={processingIDs.includes(request.id)}
+                  className="px-2 py-1 bg-green-500 text-white rounded disabled:opacity-50"
                 >
                   Accept
                 </button>
                 <button
                   onClick={() => handleResponse(request.id, "declined")}
-                  className="px-2 py-1 bg-red-500 text-white rounded"
+                  disabled={processingIDs.includes(request.id)}
+                  className="px-2 py-1 bg-red-500 text-white rounded disabled:opacity-50"
                 >
                   Decline
                 </button>

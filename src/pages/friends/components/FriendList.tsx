@@ -9,6 +9,8 @@ const FriendList: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchFriends = async () => {
       try {
         const data = await getFriends(user!.id);
@@ -35,8 +37,8 @@ const FriendList: React.FC = () => {
       ) : (
         <ul className="space-y-2">
           {friends.map((friend) => {
-            const isSender = friend.sender === user!.id;
-            const friendID = isSender ? friend.recipient : friend.sender;
+            const isSender = friend.user_id === user!.id;
+            const friendID = isSender ? friend.friend_id : friend.user_id;
 
             return (
               <li key={friend.id} className="p-2 border rounded">
