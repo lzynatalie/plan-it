@@ -1,97 +1,141 @@
 import { supabase } from "../config/supabaseClient";
+import { useAuthContext } from "../context/AuthContext";
 
-export type Friend = {
-    id: number;
-    user_id: string;
-    friend_id: string;
-    status: "pending" | "accepted" | "declined";
+export type Friendship = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  status: "pending" | "accepted" | "declined";
 };
 
-export async function getFriends(userID: string): Promise<Friend[]> {
-    const { data, error } = await supabase
-    .from("friend")
-    .select("*")
-    .or(`user_id.eq.${userID},friend_id.eq.${userID}`)
+/**
+ * Fetches friendships of the user
+ *
+ * @returns list of friendships
+ */
+export async function getFriendships(): Promise<Friendship[]> {
+  const { data, error } = await supabase
+    .from("friendship")
+    .select()
     .eq("status", "accepted");
 
-    if (error) {
-        console.error("Failed to fetch friends:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to fetch friends:", error.message);
+    throw error;
+  }
 
-    return data || [];
+  return data;
 }
 
-export async function getPendingRequests(userID: string): Promise<Friend[]> {
-    const { data, error } = await supabase
-    .from("friend")
-    .select("*")
-    .eq("friend_id", userID)
+/**
+ * Returns the friend of the user given a friendship
+ * 
+ * @param userId 
+ * @param friendship 
+ * @returns friend id
+ */
+export function getFriend(userId: string, friendship: Friendship): string {
+  return userId === friendship.sender_id ? friendship.recipient_id : friendship.sender_id;
+} 
+
+/**
+ * Fetches the user's incoming friend requests
+ * 
+ * @param userId 
+ * @returns list of friendships
+ */
+export async function getPendingRequests(userId: string): Promise<Friendship[]> {
+  const { data, error } = await supabase
+    .from("friendship")
+    .select()
+    .eq("recipient_id", userId)
     .eq("status", "pending");
 
-    if (error) {
-        console.error("Failed to fetch pending requests:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to fetch pending requests:", error.message);
+    throw error;
+  }
 
-    return data || [];
+  return data;
 }
 
-export async function sendFriendRequest(user_id: string, friend_id: string) {
-    const { data, error } = await supabase
-    .from("friend")
+/**
+ * Sends friend request to another user
+ * 
+ * @param senderId 
+ * @param recipientId 
+ */
+export async function sendFriendRequest(senderId: string, recipientId: string) {
+  const { data, error } = await supabase
+    .from("friendship")
     .select("id")
-    .or(`and(user_id.eq.${user_id},friend_id.eq.${friend_id}),and(user_id.eq.${friend_id},friend_id.eq.${user_id})`)
+    .or(
+      `and(sender_id.eq.${senderId},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${senderId})`
+    )
     .neq("status", "declined");
 
-    if (error) {
-        console.error("Failed to check for existing request:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to check for existing request:", error.message);
+    throw error;
+  }
 
-    if (data && data.length > 0) {
-        throw new Error("Friend request already exists or is pending.");
-    }
+  if (data && data.length > 0) {
+    throw new Error("Friend request already exists or is pending.");
+  }
 
-    const { error: insertError } = await supabase
-    .from("friend")
-    .insert([
-        { user_id: user_id, friend_id: friend_id, status: "pending" },
-    ]);
+  const { error: insertError } = await supabase
+    .from("friendship")
+    .insert([{ sender_id: senderId, recipient_id: recipientId, status: "pending" }]);
 
-    if (insertError) {
-        console.error("failed to send friend request:", insertError.message);
-        throw insertError;
-    }
+  if (insertError) {
+    console.error("failed to send friend request:", insertError.message);
+    throw insertError;
+  }
 }
 
-export async function respondToRequest(friendshipID: number, status: "accepted" | "declined") {
-    const { error } = await supabase
-    .from("friend")
+/**
+ * Accepts or declines a friend request
+ * 
+ * @param friendshipId 
+ * @param status 
+ */
+export async function respondToRequest(
+  friendshipId: string,
+  status: "accepted" | "declined"
+) {
+  const { error } = await supabase
+    .from("friendship")
     .update({ status })
-    .eq("id", friendshipID);
+    .eq("id", friendshipId);
 
-    if (error) {
-        console.error("Failed to respond to friend request:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to respond to friend request:", error.message);
+    throw error;
+  }
 }
 
-export async function getUserIDByUsername(username: string): Promise<string | null> {
-    const { data, error } = await supabase
+/**
+ * Fetches a user's id given their username
+ * 
+ * @param username 
+ * @returns 
+ */
+export async function getUserId(
+  username: string
+): Promise<string | null> {
+  const { data, error } = await supabase
     .from("user")
     .select("id")
-    .eq("username", username)
-    .single();
+    .eq("username", username);
 
-    if (error) {
-        if (error.code === "PGRST116") {
-            // no rows found
-            return null;
-        }
-        console.error("Failed to find user:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to fetch user:", error.message);
+    throw error;
+  }
 
-    return data?.id || null;
+  if (!data || !data.length) {
+    return null;
+  }
+
+  return data[0].id;
 }

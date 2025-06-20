@@ -1,30 +1,36 @@
 import React, { useEffect, useState } from "react";
-import { getFriends, Friend } from "../../../services/friendService";
+import {
+  getFriendships,
+  Friendship,
+  getFriend,
+} from "../../../services/friendService";
 import { useAuthContext } from "../../../context/AuthContext";
+import { PostgrestError } from "@supabase/supabase-js";
 
-const FriendList: React.FC = () => {
-  const [friends, setFriends] = useState<Friend[]>([]);
+const FriendList = () => {
   const { user } = useAuthContext();
+  const userId = user!.id;
+
+  const [friendships, setFriendships] = useState<Friendship[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (!user) return;
-
     const fetchFriends = async () => {
       try {
-        const data = await getFriends(user!.id);
-        setFriends(data);
-      } catch (error: any) {
-        console.error("Failed to fetch friends:", error.message);
-        setErrorMessage("Failed to load friends. Please try again later.");
+        const friendships = await getFriendships();
+        setFriendships(friendships);
+      } catch (error) {
+        if (error instanceof PostgrestError) {
+          setErrorMessage("Failed to load friends. Please try again later.");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchFriends();
-  }, [user]);
+  }, []);
 
   if (loading) return <p>Loading friends...</p>;
   if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
@@ -32,20 +38,16 @@ const FriendList: React.FC = () => {
   return (
     <div>
       <h2 className="text-xl font-bold mb-2">Your Friends</h2>
-      {friends.length === 0 ? (
+      {friendships.length === 0 ? (
         <p>You have no friends yet.</p>
       ) : (
         <ul className="space-y-2">
-          {friends.map((friend) => {
-            const isSender = friend.user_id === user!.id;
-            const friendID = isSender ? friend.friend_id : friend.user_id;
-
-            return (
-              <li key={friend.id} className="p-2 border rounded">
-                Friend ID: <span className="font-mono">{friendID}</span>
-              </li>
-            );
-          })}
+          {friendships.map((friendship) => (
+            <li key={friendship.id} className="p-2 border rounded">
+              Friend ID:{" "}
+              <span className="font-mono">{getFriend(userId, friendship)}</span>
+            </li>
+          ))}
         </ul>
       )}
     </div>

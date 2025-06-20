@@ -152,10 +152,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /**
-   * Fetches the user's username, display name, and email
+   * Fetches a user's username, display name, and email given their id
+   *
+   * If no user_id is provided, returns the user's own profile
    *
    * @param column
-   * @returns user data
+   * @returns profile
    */
   const getProfile = async (userId?: string): Promise<Profile> => {
     if (!userId) {

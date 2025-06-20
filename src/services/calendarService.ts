@@ -10,16 +10,16 @@ export type EventData = {
   end_time?: string;
 };
 
-export type UserEvent = Omit<EventData, "id" | "creator_id" | "group_id">;
+export type UserEvent = Omit<EventData, "id" | "creator_id">;
 
-export type GroupEvent = Omit<EventData, "id" | "creator_id">;
+export type GroupEvent = Omit<EventData, "id" | "creator_id" | "start_time" | "end_time">;
 
 /**
  * Fetches events accessible by the user
  *
  * @returns list of event data
  */
-export const getEvents = async (): Promise<EventData[]> => {
+export async function getEvents(): Promise<EventData[]> {
   const { data, error } = await supabase
     .from("event")
     .select()
@@ -39,18 +39,19 @@ export const getEvents = async (): Promise<EventData[]> => {
  * @param eventId
  * @returns event data
  */
-export const getEvent = async (eventId: string): Promise<EventData> => {
+export async function getEvent(eventId: string): Promise<EventData> {
   const { data, error } = await supabase
     .from("event")
     .select()
-    .eq("id", eventId);
+    .eq("id", eventId)
+    .single();
 
   if (error) {
     console.error("Failed to fetch event:", error.message);
     throw error;
   }
 
-  return data[0];
+  return data;
 };
 
 /**
@@ -58,7 +59,7 @@ export const getEvent = async (eventId: string): Promise<EventData> => {
  *
  * @param event
  */
-export const addEvent = async (event: UserEvent) => {
+export async function addEvent(event: UserEvent | GroupEvent) {
   const { error } = await supabase.from("event").insert([event]);
 
   if (error) {
@@ -72,7 +73,7 @@ export const addEvent = async (event: UserEvent) => {
  *
  * @param eventId
  */
-export const deleteEvent = async (eventId: string) => {
+export async function deleteEvent(eventId: string) {
   const { error } = await supabase
     .from("event")
     .delete()
@@ -90,7 +91,7 @@ export const deleteEvent = async (eventId: string) => {
  * @param eventId
  * @param updatedEvent
  */
-export const updateEvent = async (eventId: string, updatedEvent: UserEvent) => {
+export async function updateEvent(eventId: string, updatedEvent: UserEvent) {
   const { error } = await supabase
     .from("event")
     .update(updatedEvent)

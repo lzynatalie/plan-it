@@ -40,16 +40,6 @@ const EventPage = () => {
     fetchEvent();
   }, []);
 
-  // TODO
-  const handleUpdateEvent = async () => {
-    try {
-    } catch (error) {
-      if (error instanceof PostgrestError) {
-        console.error("Failed to update event:", error.message);
-      }
-    }
-  };
-
   const handleDeleteEvent = async (eventId: string) => {
     try {
       await deleteEvent(eventId);
