@@ -68,7 +68,10 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
 
     try {
       const inviteeIds = invitees.map((i) => i.friendId);
-      const groupId = await createGroup([...inviteeIds, user!.id]);
+      const groupId = await createGroup(
+        [...inviteeIds, userId],
+        newEvent.title
+      );
       await addEvent({ ...newEvent, group_id: groupId });
       setNewEvent({
         title: "",
