@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { sendFriendRequest, getUserIDByUsername } from "../../../services/friendService";
+import React, { useState } from "react";
+import { sendFriendRequest, getUserId } from "../../../services/friendService";
 import { useAuthContext } from "../../../context/AuthContext";
+import { PostgrestError } from "@supabase/supabase-js";
 
-const SendFriendRequest: React.FC = () => {
+const SendFriendRequest = () => {
   const { user } = useAuthContext();
+  const userId = user!.id;
+
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,27 +22,30 @@ const SendFriendRequest: React.FC = () => {
     }
 
     try {
-      const recipientID = await getUserIDByUsername(username);
+      const recipientId = await getUserId(username);
 
-      if (!recipientID) {
+      if (!recipientId) {
         setMessage("User not found.");
         setLoading(false);
         return;
       }
 
-      if (recipientID === user!.id) {
+      if (recipientId === user!.id) {
         setMessage("You can't send a friend request to yourself!");
         setLoading(false);
         return;
       }
 
-      await sendFriendRequest(user!.id, recipientID);
+      await sendFriendRequest(userId, recipientId);
       setMessage("Friend request sent!");
-      setUsername("");
-    } catch (error: any) {
-      console.error("Failed to send request:", error.message);
-      setMessage(error.message || "Something went wrong. Please try again.");
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        setMessage("Failed to send friend request. Please try again later.");
+      } else if (error instanceof Error) {
+        setMessage(error.message);
+      }
     } finally {
+      setUsername("");
       setLoading(false);
     }
   };

@@ -1,48 +1,61 @@
 import React, { useEffect, useState } from "react";
-import { getPendingRequests, respondToRequest, Friend } from "../../../services/friendService";
+import {
+  getPendingRequests,
+  respondToRequest,
+  Friendship,
+} from "../../../services/friendService";
 import { useAuthContext } from "../../../context/AuthContext";
+import { PostgrestError } from "@supabase/supabase-js";
 
-const PendingRequests: React.FC = () => {
+const PendingRequests = () => {
   const { user } = useAuthContext();
-  const [requests, setRequests] = useState<Friend[]>([]);
+  const userId = user!.id;
+
+  const [requests, setRequests] = useState<Friendship[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   //to track which request ID being processsed and disable accept and decline buttons for these requests while awaiting response
-  const [processingIDs, setProcessingIDs] = useState<number[]>([]);
+  const [processingIDs, setProcessingIDs] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!user) return;
-    
     const fetchRequests = async () => {
       try {
-        const data = await getPendingRequests(user!.id);
+        const data = await getPendingRequests(userId);
         setRequests(data);
-      } catch (err: any) {
-        console.error("Failed to fetch pending requests:", err.message);
-        setErrorMessage("Failed to load pending requests. Please try again later.");
+      } catch (error) {
+        if (error instanceof PostgrestError) {
+          setErrorMessage(
+            "Failed to load pending requests. Please try again later."
+          );
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchRequests();
-  }, [user]);
+  }, []);
 
-  const handleResponse = (id: number, status: "accepted" | "declined") => {
+  const handleResponse = (id: string, status: "accepted" | "declined") => {
     //mark current frendship request as being processed
-    setProcessingIDs(prev => [...prev, id]);
+    setProcessingIDs((prev) => [...prev, id]);
 
     respondToRequest(id, status)
       .then(() => {
         setRequests((prev) => prev.filter((request) => request.id !== id));
       })
       .catch((error) => {
-        console.error(`Failed to ${status} the friend request:`, error.message);
-        setErrorMessage(`Failed to ${status} the request. Try again.`);
+        setErrorMessage(
+          `Failed to ${
+            status === "accepted" ? "accept" : "decline"
+          } the request. Try again.`
+        );
       })
       .finally(() => {
         //done processing, remove from tracker
-        setProcessingIDs(prev => prev.filter(requestID => requestID !== id));
+        setProcessingIDs((prev) =>
+          prev.filter((requestId) => requestId !== id)
+        );
       });
   };
 
@@ -57,9 +70,12 @@ const PendingRequests: React.FC = () => {
       ) : (
         <ul className="space-y-2">
           {requests.map((request) => (
-            <li key={request.id} className="p-2 border rounded flex justify-between items-center">
+            <li
+              key={request.id}
+              className="p-2 border rounded flex justify-between items-center"
+            >
               <span>
-                From: <span className="font-mono">{request.user_id}</span>
+                From: <span className="font-mono">{request.sender_id}</span>
               </span>
               <div className="space-x-2">
                 <button

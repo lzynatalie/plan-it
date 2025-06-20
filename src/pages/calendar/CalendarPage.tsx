@@ -9,9 +9,10 @@ import {
 } from "../../services/calendarService";
 import { PostgrestError } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../context/AuthContext";
 
 const CalendarPage = () => {
-  const [eventData, setEventData] = useState<EventData[]>([]);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
     description: "",
@@ -24,8 +25,14 @@ const CalendarPage = () => {
   const navigate = useNavigate();
 
   const fetchEvents = async () => {
-    const eventData = await getEvents();
-    setEventData(eventData);
+    try {
+      const events = await getEvents();
+      setEvents(events);
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        setError(error.message);
+      }
+    }
   };
 
   // only fetch events and user info once, when the page first loads
@@ -67,7 +74,7 @@ const CalendarPage = () => {
       await fetchEvents();
     } catch (error) {
       if (error instanceof PostgrestError) {
-        console.error("Failed to delete event:", error.message);
+        setError(error.message);
       }
     }
   };
@@ -81,7 +88,7 @@ const CalendarPage = () => {
 
         <div className="row">
           <Calendar
-            values={{ eventData }}
+            values={{ events }}
             functions={{ handleViewEvent, handleDeleteEvent }}
           />
 
@@ -93,7 +100,7 @@ const CalendarPage = () => {
                   placeholder="Title"
                   value={newEvent.title}
                   onChange={(e) =>
-                    setNewEvent({ ...newEvent, title: e.target.value })
+                    setNewEvent((prev) => ({ ...prev, title: e.target.value }))
                   }
                   required
                 />
@@ -103,7 +110,10 @@ const CalendarPage = () => {
                   placeholder="Description"
                   value={newEvent.description}
                   onChange={(e) =>
-                    setNewEvent({ ...newEvent, description: e.target.value })
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
                   }
                 />
 
@@ -111,7 +121,10 @@ const CalendarPage = () => {
                   type="datetime-local"
                   value={newEvent.start_time}
                   onChange={(e) =>
-                    setNewEvent({ ...newEvent, start_time: e.target.value })
+                    setNewEvent((prev) => ({
+                      ...prev,
+                      start_time: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -120,7 +133,10 @@ const CalendarPage = () => {
                   type="datetime-local"
                   value={newEvent.end_time}
                   onChange={(e) =>
-                    setNewEvent({ ...newEvent, end_time: e.target.value })
+                    setNewEvent((prev) => ({
+                      ...newEvent,
+                      end_time: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -141,7 +157,7 @@ const CalendarPage = () => {
 
 type CalendarProps = {
   values: {
-    eventData: EventData[];
+    events: EventData[];
   };
   functions: {
     handleViewEvent: (eventId: string) => Promise<void>;
@@ -150,28 +166,37 @@ type CalendarProps = {
 };
 
 const Calendar = ({
-  values: { eventData },
+  values: { events },
   functions: { handleViewEvent, handleDeleteEvent },
 }: CalendarProps) => {
+  const { user } = useAuthContext();
+  const userId = user!.id;
+
   return (
     <div className="box column">
-      {eventData.length ? (
+      {events.length ? (
         <ul>
-          {eventData.map(({ id, title, description, start_time, end_time }) => (
-            <li key={id}>
-              <div className="box row">
-                <div className="column">
-                  <p>{title}</p>
-                  {description && <p>{description}</p>}
-                  <p>Start: {start_time}</p>
-                  <p>End: {end_time}</p>
-                </div>
+          {events.map(
+            ({ id, creator_id, title, description, start_time, end_time }) => (
+              <li key={id}>
+                <div className="box row">
+                  <div className="column">
+                    <p>{title}</p>
+                    {description && <p>{description}</p>}
+                    <p>Start: {start_time}</p>
+                    <p>End: {end_time}</p>
+                  </div>
 
-                <button onClick={(e) => handleViewEvent(id)}>View</button>
-                <button onClick={(e) => handleDeleteEvent(id)}>Delete</button>
-              </div>
-            </li>
-          ))}
+                  <button onClick={(e) => handleViewEvent(id)}>View</button>
+                  {userId === creator_id && (
+                    <button onClick={(e) => handleDeleteEvent(id)}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          )}
         </ul>
       ) : (
         "No events yet"
