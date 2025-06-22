@@ -140,3 +140,20 @@ export async function getUserId(
 
   return data[0].id;
 }
+
+/**
+ * Deletes a friendship
+ * 
+ * @param friendshipId
+ */
+export async function deleteFriendship(friendshipId: string): Promise<void> {
+    const { error } = await supabase
+    .from("friendship")
+    .delete()
+    .eq("id", friendshipId);
+
+    if (error) {
+        console.error("Failed to delete friendship:", error.message);
+        throw error;
+    }
+}
