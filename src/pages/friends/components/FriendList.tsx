@@ -3,6 +3,7 @@ import {
   getFriendships,
   Friendship,
   getFriend,
+  deleteFriendship
 } from "../../../services/friendService";
 import { useAuthContext } from "../../../context/AuthContext";
 import { PostgrestError } from "@supabase/supabase-js";
@@ -44,6 +45,20 @@ const FriendList = () => {
     fetchFriends();
   }, [user, getProfile]);
 
+  const handleDelete = async (friendshipId: string, friendUsername: string) => {
+    const confirm = window.confirm(`Are you sure you want to remove ${friendUsername} from your friend list?`);
+    if (!confirm) return;
+
+    try {
+      await deleteFriendship(friendshipId);
+      setFriendships((prev) => prev.filter((friendship) => friendship.id !== friendshipId));
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        setErrorMessage("Failed to delete friend. Please try again later.");
+      }
+    }
+  };
+
   if (loading) return <p>Loading friends...</p>;
   if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
 
@@ -55,8 +70,14 @@ const FriendList = () => {
       ) : (
         <ul className="space-y-2">
           {friendships.map((friendship) => (
-            <li key={friendship.id} className="p-2 border rounded">
-              Friend: <span className="font-mono">{friendship.username}</span>
+            <li key={friendship.id} className="p-2 border rounded flex justify-between items-center">
+              <span>Friend: <span className="font-mono">{friendship.username}</span></span>
+              <button 
+              onClick={() => handleDelete(friendship.id, friendship.username!)}
+              className="px-2 py-1 bg-red-500 text-white rounded"
+              >
+                Remove
+              </button>
             </li>
           ))}
         </ul>
