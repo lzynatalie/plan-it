@@ -8,7 +8,7 @@ import { useAuthContext } from "../../../context/AuthContext";
 import { PostgrestError } from "@supabase/supabase-js";
 
 const FriendList = () => {
-  const { user } = useAuthContext();
+  const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
   const [friendships, setFriendships] = useState<Friendship[]>([]);
@@ -18,8 +18,20 @@ const FriendList = () => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const friendships = await getFriendships();
-        setFriendships(friendships);
+        const friendshipsWithIds = await getFriendships();
+
+        const friendshipsWithUsernames = await Promise.all(
+          friendshipsWithIds.map(async (friendship) => {
+            const isSender = friendship.sender_id === userId;
+            const friendId = isSender
+              ? friendship.recipient_id
+              : friendship.sender_id;
+            const profile = await getProfile(friendId);
+            return { ...friendship, username: profile.username };
+          })
+        );
+
+        setFriendships(friendshipsWithUsernames);
       } catch (error) {
         if (error instanceof PostgrestError) {
           setErrorMessage("Failed to load friends. Please try again later.");
@@ -30,7 +42,7 @@ const FriendList = () => {
     };
 
     fetchFriends();
-  }, []);
+  }, [user, getProfile]);
 
   if (loading) return <p>Loading friends...</p>;
   if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
@@ -44,8 +56,7 @@ const FriendList = () => {
         <ul className="space-y-2">
           {friendships.map((friendship) => (
             <li key={friendship.id} className="p-2 border rounded">
-              Friend ID:{" "}
-              <span className="font-mono">{getFriend(userId, friendship)}</span>
+              Friend: <span className="font-mono">{friendship.username}</span>
             </li>
           ))}
         </ul>

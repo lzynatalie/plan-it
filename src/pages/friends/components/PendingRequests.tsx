@@ -37,7 +37,7 @@ const PendingRequests = () => {
   }, []);
 
   const handleResponse = (id: string, status: "accepted" | "declined") => {
-    //mark current frendship request as being processed
+    //mark current friendship request as being processed
     setProcessingIDs((prev) => [...prev, id]);
 
     respondToRequest(id, status)
@@ -75,7 +75,7 @@ const PendingRequests = () => {
               className="p-2 border rounded flex justify-between items-center"
             >
               <span>
-                From: <span className="font-mono">{request.sender_id}</span>
+                From: <span className="font-mono">{request.username}</span>
               </span>
               <div className="space-x-2">
                 <button
