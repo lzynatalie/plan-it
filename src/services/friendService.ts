@@ -2,14 +2,15 @@ import { supabase } from "../config/supabaseClient";
 import { useAuthContext } from "../context/AuthContext";
 
 export type Friendship = {
-  id: string;
-  sender_id: string;
-  recipient_id: string;
-  status: "pending" | "accepted" | "declined";
+    id: string;
+    sender_id: string;
+    recipient_id: string;
+    status: "pending" | "accepted" | "declined";
+    username?: string;
 };
 
 /**
- * Fetches friendships of the user
+ * Fetches all accepted friendships
  *
  * @returns list of friendships
  */
@@ -20,7 +21,7 @@ export async function getFriendships(): Promise<Friendship[]> {
     .eq("status", "accepted");
 
   if (error) {
-    console.error("Failed to fetch friends:", error.message);
+    console.error("Failed to fetch friendships:", error.message);
     throw error;
   }
 
