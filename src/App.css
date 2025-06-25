@@ -2,7 +2,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
+} 
 
 .container {
   height: 100vh;
@@ -19,9 +19,10 @@
 }
 
 .box {
-  border: 1px solid white;
+  border: 1px solid #d8b4ff;
   border-radius: 10px;
   padding: 20px 40px;
+  box-shadow: 0 0 10px #d8b4ff66
 }
 
 .row {
@@ -41,17 +42,19 @@
 }
 
 button {
-  height: fit-content;
-  width: fit-content;
-  background-color: black;
-  color: white;
-  border: 0.1px solid white;
-  border-radius: 5px;
+  background-color: #b57edc;
+  color: black;
+  border: 1px solid #d8b4ff;
+  border-radius: 10px;
   padding: 10px 20px;
+  font-weight: 500;
+  box-shadow: 0 0 6px #d8b4ff44;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 button:hover {
-  background-color: #222;
+  background-color: #d8b4ff;
+  box-shadow: 0 0 10px #d8b4ff88;
   cursor: pointer;
 }
 
