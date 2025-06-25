@@ -3,15 +3,18 @@ import Header from "../../components/header/Header";
 import {
   UserEvent,
   EventData,
-  addEvent,
   deleteEvent,
   getEvents,
+  createEvent,
 } from "../../services/calendarService";
 import { PostgrestError } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 
 const CalendarPage = () => {
+  const { user } = useAuthContext();
+  const userId = user!.id;
+
   const [events, setEvents] = useState<EventData[]>([]);
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
@@ -26,8 +29,9 @@ const CalendarPage = () => {
 
   const fetchEvents = async () => {
     try {
-      const events = await getEvents();
-      setEvents(events);
+      const events = await getEvents(userId);
+      const upcomingEvents = events.filter((event) => event.start_time);
+      setEvents(upcomingEvents);
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -46,7 +50,7 @@ const CalendarPage = () => {
     setLoading(true);
 
     try {
-      await addEvent(newEvent);
+      await createEvent(newEvent, userId);
       await fetchEvents();
       // event added, set to clean slate for next event
       setNewEvent({
@@ -86,70 +90,68 @@ const CalendarPage = () => {
       <div className="main">
         <h1>Calendar</h1>
 
-        <div className="row">
-          <Calendar
-            values={{ events }}
-            functions={{ handleViewEvent, handleDeleteEvent }}
-          />
+        <div className="box">
+          <div className="column">
+            <form className="column" action="" onSubmit={handleAddEvent}>
+              <input
+                type="text"
+                placeholder="Title"
+                value={newEvent.title}
+                onChange={(e) =>
+                  setNewEvent((prev) => ({ ...prev, title: e.target.value }))
+                }
+                required
+              />
 
-          <div className="box column">
-            <div className="column">
-              <form className="column" action="" onSubmit={handleAddEvent}>
-                <input
-                  type="text"
-                  placeholder="Title"
-                  value={newEvent.title}
-                  onChange={(e) =>
-                    setNewEvent((prev) => ({ ...prev, title: e.target.value }))
-                  }
-                  required
-                />
+              <input
+                type="text"
+                placeholder="Description"
+                value={newEvent.description}
+                onChange={(e) =>
+                  setNewEvent((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+              />
 
-                <input
-                  type="text"
-                  placeholder="Description"
-                  value={newEvent.description}
-                  onChange={(e) =>
-                    setNewEvent((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                />
+              <input
+                type="datetime-local"
+                value={newEvent.start_time || ""}
+                onChange={(e) =>
+                  setNewEvent((prev) => ({
+                    ...prev,
+                    start_time: e.target.value,
+                  }))
+                }
+                required
+              />
 
-                <input
-                  type="datetime-local"
-                  value={newEvent.start_time}
-                  onChange={(e) =>
-                    setNewEvent((prev) => ({
-                      ...prev,
-                      start_time: e.target.value,
-                    }))
-                  }
-                  required
-                />
+              <input
+                type="datetime-local"
+                value={newEvent.end_time || ""}
+                onChange={(e) =>
+                  setNewEvent((prev) => ({
+                    ...newEvent,
+                    end_time: e.target.value,
+                  }))
+                }
+                required
+              />
 
-                <input
-                  type="datetime-local"
-                  value={newEvent.end_time}
-                  onChange={(e) =>
-                    setNewEvent((prev) => ({
-                      ...newEvent,
-                      end_time: e.target.value,
-                    }))
-                  }
-                  required
-                />
+              <div className="error">{error && <p>{error}</p>}</div>
 
-                <div className="error">{error && <p>{error}</p>}</div>
-
-                <button type="submit" disabled={loading}>
-                  Add Event
-                </button>
-              </form>
-            </div>
+              <button type="submit" disabled={loading}>
+                Add Event
+              </button>
+            </form>
           </div>
         </div>
+
+        <Calendar
+          values={{ events }}
+          functions={{ handleViewEvent, handleDeleteEvent }}
+        />
       </div>
     </div>
   );
@@ -173,7 +175,7 @@ const Calendar = ({
   const userId = user!.id;
 
   return (
-    <div className="box column">
+    <div>
       {events.length ? (
         <ul>
           {events.map(
@@ -183,8 +185,12 @@ const Calendar = ({
                   <div className="column">
                     <p>{title}</p>
                     {description && <p>{description}</p>}
-                    <p>Start: {start_time}</p>
-                    <p>End: {end_time}</p>
+                    {start_time && (
+                      <p>Start: {new Date(start_time).toLocaleString()}</p>
+                    )}
+                    {end_time && (
+                      <p>End: {new Date(end_time).toLocaleString()}</p>
+                    )}
                   </div>
 
                   <button onClick={(e) => handleViewEvent(id)}>View</button>
@@ -199,7 +205,7 @@ const Calendar = ({
           )}
         </ul>
       ) : (
-        "No events yet"
+        <div className="box">No events yet</div>
       )}
     </div>
   );

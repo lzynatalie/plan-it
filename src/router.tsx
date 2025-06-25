@@ -11,7 +11,9 @@ import CalendarPage from "./pages/calendar/CalendarPage";
 import EventsPage from "./pages/events/EventsPage";
 import EventPage from "./pages/events/pages/EventPage";
 import FriendsPage from "./pages/friends/FriendsPage";
+import UserPage from "./pages/friends/pages/UserPage";
 import GroupsPage from "./pages/groups/GroupsPage";
+import GroupPage from "./pages/groups/pages/GroupPage";
 import VenuesPage from "./pages/venues/VenuesPage";
 
 export const router = createBrowserRouter([
@@ -76,10 +78,26 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/users/:username",
+    element: (
+      <PrivateRoute>
+        <UserPage />
+      </PrivateRoute>
+    ),
+  },
+  {
     path: "/groups",
     element: (
       <PrivateRoute>
         <GroupsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/groups/:groupId",
+    element: (
+      <PrivateRoute>
+        <GroupPage />
       </PrivateRoute>
     ),
   },

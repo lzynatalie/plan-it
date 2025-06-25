@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  deleteEvent,
   EventData,
-  getEvents,
+  getEventInvites,
+  respondToInvite,
 } from "../../../services/calendarService";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const UpcomingEvents = () => {
+const EventInvites = () => {
   const { user } = useAuthContext();
   const userId = user!.id;
   const [events, setEvents] = useState<EventData[]>([]);
@@ -15,9 +15,8 @@ const UpcomingEvents = () => {
   const navigate = useNavigate();
 
   const fetchEvents = async () => {
-    const events = await getEvents(userId);
-    const upcomingEvents = events.filter((event) => event.start_time);
-    setEvents(upcomingEvents);
+    const events = await getEventInvites(userId);
+    setEvents(events);
   };
 
   useEffect(() => {
@@ -28,14 +27,19 @@ const UpcomingEvents = () => {
     navigate(`/events/${eventId}`);
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    await deleteEvent(eventId);
+  const handleAcceptInvite = async (eventId: string) => {
+    await respondToInvite(userId, eventId, "attending");
+    await fetchEvents();
+  };
+
+  const handleDeclineInvite = async (eventId: string) => {
+    await respondToInvite(userId, eventId, "declined");
     await fetchEvents();
   };
 
   return (
     <div>
-      <h2>Upcoming Events</h2>
+      <h2>Invites</h2>
 
       {events.length > 0 ? (
         <ul>
@@ -46,30 +50,25 @@ const UpcomingEvents = () => {
                   <div className="column">
                     <p>{title}</p>
                     {description && <p>{description}</p>}
-                    {start_time && (
-                      <p>Start: {new Date(start_time).toLocaleString()}</p>
-                    )}
-                    {end_time && (
-                      <p>End: {new Date(end_time).toLocaleString()}</p>
-                    )}
                   </div>
 
                   <button onClick={(e) => handleViewEvent(id)}>View</button>
-                  {userId === creator_id && (
-                    <button onClick={(e) => handleDeleteEvent(id)}>
-                      Delete
-                    </button>
-                  )}
+                  <button onClick={(e) => handleAcceptInvite(id)}>
+                    Accept
+                  </button>
+                  <button onClick={(e) => handleDeclineInvite(id)}>
+                    Decline
+                  </button>
                 </div>
               </li>
             )
           )}
         </ul>
       ) : (
-        <div className="box">No upcoming events</div>
+        <div className="box">No event invites</div>
       )}
     </div>
   );
 };
 
-export default UpcomingEvents;
+export default EventInvites;

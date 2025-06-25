@@ -12,7 +12,7 @@ type Auth = {
   session: Session | null | undefined;
   user: User | undefined;
   loading: boolean;
-  getProfile: (userId?: string) => Promise<Profile>;
+  getProfile: (userId?: string) => Promise<UserData>;
   registerNewUser: RegisterHandler;
   loginUser: LoginHandler;
   logoutUser: LogoutHandler;
@@ -21,7 +21,7 @@ type Auth = {
   updatePassword: UpdatePasswordHandler;
 };
 
-type Profile = {
+export type UserData = {
   id: string;
   username: string;
   display_name: string;
@@ -159,7 +159,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
    * @param column
    * @returns profile
    */
-  const getProfile = async (userId?: string): Promise<Profile> => {
+  const getProfile = async (userId?: string): Promise<UserData> => {
     if (!userId) {
       if (!user) {
         throw new Error("Unable to find user.");
