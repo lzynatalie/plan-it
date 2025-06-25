@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Header from "../../components/header/Header";
-import { addEvent, UserEvent } from "../../services/calendarService";
+import { createEvent, UserEvent } from "../../services/calendarService";
 import { getFriend, getFriendships } from "../../services/friendService";
 import { PostgrestError } from "@supabase/supabase-js";
-import { createGroup } from "../../services/groupService";
 import { useAuthContext } from "../../context/AuthContext";
+import EventInvites from "./components/EventInvites";
+import UpcomingEvents from "./components/UpcomingEvents";
+import PendingEvents from "./components/PendingEvents";
 
 const EventsPage = () => {
   const [createEvent, setCreateEvent] = useState(false);
@@ -22,16 +24,9 @@ const EventsPage = () => {
           <button onClick={(e) => setCreateEvent(true)}>Create Event</button>
         )}
 
-        <div className="row">
-          <div className="column">
-            <h2>Pending</h2>
-            <div className="box">No pending events</div>
-          </div>
-          <div className="column">
-            <h2>Upcoming</h2>
-            <div className="box">No upcoming events</div>
-          </div>
-        </div>
+        <EventInvites />
+        <PendingEvents />
+        <UpcomingEvents />
       </div>
     </div>
   );
@@ -50,6 +45,8 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
     description: "",
+    start_time: null,
+    end_time: null,
   });
   const [invitees, setInvitees] = useState<
     { friendshipId: string; friendId: string }[]
@@ -67,15 +64,13 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
     setLoading(true);
 
     try {
-      const inviteeIds = invitees.map((i) => i.friendId);
-      const groupId = await createGroup(
-        [...inviteeIds, userId],
-        newEvent.title
-      );
-      await addEvent({ ...newEvent, group_id: groupId });
+      const inviteeIds = invitees.map((invitee) => invitee.friendId);
+      await createEvent(newEvent, userId, inviteeIds);
       setNewEvent({
         title: "",
         description: "",
+        start_time: null,
+        end_time: null,
       });
       setInvitees([]);
       setInviteFriends(false);
@@ -112,7 +107,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
 
         <input
           type="datetime-local"
-          value={newEvent.start_time}
+          value={newEvent.start_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
           }
@@ -120,7 +115,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
 
         <input
           type="datetime-local"
-          value={newEvent.end_time}
+          value={newEvent.end_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
           }

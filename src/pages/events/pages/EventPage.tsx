@@ -7,10 +7,17 @@ import {
   getEvent,
   deleteEvent,
   updateEvent,
+  getAttendees,
+  getTimings,
+  respondToInvite,
 } from "../../../services/calendarService";
 import { PostgrestError } from "@supabase/supabase-js";
+import { useAuthContext } from "../../../context/AuthContext";
 
 const EventPage = () => {
+  const { user } = useAuthContext();
+  const userId = user!.id;
+
   const [currentEvent, setCurrentEvent] = useState<EventData>({
     id: "",
     creator_id: "",
@@ -20,14 +27,28 @@ const EventPage = () => {
     start_time: "",
     end_time: "",
   });
+  const [attendees, setAttendees] = useState<
+    { id: string; username: string }[]
+  >([]);
+  const [timings, setTimings] = useState<{ start: string; end: string }[]>([]);
   const [updateEvent, setUpdateEvent] = useState(false);
   const [error, setError] = useState("");
 
   const { eventId } = useParams();
   const navigate = useNavigate();
 
+  const fetchAttendees = async () => {
+    const attendees = await getAttendees(currentEvent.id);
+    setAttendees(attendees);
+  };
+
+  const fetchTimings = async () => {
+    const timings = await getTimings(currentEvent.id);
+    setTimings(timings);
+  };
+
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventDetails = async () => {
       if (!eventId) {
         setError("Event not found.");
         return;
@@ -35,15 +56,27 @@ const EventPage = () => {
 
       const event = await getEvent(eventId);
       setCurrentEvent(event);
+
+      const attendees = await getAttendees(eventId);
+      setAttendees(attendees);
+
+      const timings = await getTimings(eventId);
+      setTimings(timings);
     };
 
-    fetchEvent();
+    fetchEventDetails();
   }, []);
+
+  const handleJoinEvent = async () => {
+    await respondToInvite(userId, currentEvent.id, "attending");
+    await fetchAttendees();
+    await fetchTimings();
+  };
 
   const handleDeleteEvent = async (eventId: string) => {
     try {
       await deleteEvent(eventId);
-      navigate("/calendar");
+      navigate("/event");
     } catch (error) {
       if (error instanceof PostgrestError) {
         console.error("Failed to delete event:", error.message);
@@ -59,11 +92,49 @@ const EventPage = () => {
         <h1>{currentEvent.title}</h1>
 
         <div className="box">
+          <h2>Event Details</h2>
+
           {currentEvent.description && (
             <p>Description: {currentEvent.description}</p>
           )}
-          <p>Start time: {currentEvent.start_time}</p>
-          <p>End time: {currentEvent.end_time}</p>
+          {currentEvent.start_time ? (
+            <p>Start time: {currentEvent.start_time}</p>
+          ) : (
+            "Timing not decided yet"
+          )}
+          {currentEvent.end_time && <p>End time: {currentEvent.end_time}</p>}
+
+          {attendees.length > 0 && (
+            <div>
+              <h2>Attendee List</h2>
+              <ul>
+                {attendees.map(({ id, username }) => (
+                  <li key={id}>
+                    <p>{username}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {!currentEvent.start_time && (
+            <div>
+              <h2>Available Timings</h2>
+              {timings.length > 0 ? (
+                <ol>
+                  {timings.map(({ start, end }, index) => (
+                    <li key={index}>
+                      <p>
+                        {start} - {end}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                "No available timings"
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="error">
@@ -72,7 +143,11 @@ const EventPage = () => {
           )}
         </div>
 
-        {!updateEvent && (
+        {!attendees.map((attendee) => attendee.id).includes(userId) && (
+          <button onClick={(e) => handleJoinEvent()}>Join Event</button>
+        )}
+
+        {!updateEvent && userId === currentEvent.creator_id && (
           <div className="row">
             <button
               onClick={(e) => {
@@ -171,7 +246,7 @@ const UpdateEvent = ({
 
         <input
           type="datetime-local"
-          value={updatedEvent.start_time}
+          value={updatedEvent.start_time || ""}
           onChange={(e) =>
             setUpdatedEvent({ ...updatedEvent, start_time: e.target.value })
           }
@@ -179,7 +254,7 @@ const UpdateEvent = ({
 
         <input
           type="datetime-local"
-          value={updatedEvent.end_time}
+          value={updatedEvent.end_time || ""}
           onChange={(e) =>
             setUpdatedEvent({ ...updatedEvent, end_time: e.target.value })
           }

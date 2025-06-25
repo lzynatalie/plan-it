@@ -7,7 +7,7 @@ import {
 import { useAuthContext } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-const UpcomingEvents = () => {
+const PendingEvents = () => {
   const { user } = useAuthContext();
   const userId = user!.id;
   const [events, setEvents] = useState<EventData[]>([]);
@@ -16,7 +16,7 @@ const UpcomingEvents = () => {
 
   const fetchEvents = async () => {
     const events = await getEvents(userId);
-    const upcomingEvents = events.filter((event) => event.start_time);
+    const upcomingEvents = events.filter((event) => !event.start_time);
     setEvents(upcomingEvents);
   };
 
@@ -35,7 +35,7 @@ const UpcomingEvents = () => {
 
   return (
     <div>
-      <h2>Upcoming Events</h2>
+      <h2>Pending Events</h2>
 
       {events.length > 0 ? (
         <ul>
@@ -46,12 +46,6 @@ const UpcomingEvents = () => {
                   <div className="column">
                     <p>{title}</p>
                     {description && <p>{description}</p>}
-                    {start_time && (
-                      <p>Start: {new Date(start_time).toLocaleString()}</p>
-                    )}
-                    {end_time && (
-                      <p>End: {new Date(end_time).toLocaleString()}</p>
-                    )}
                   </div>
 
                   <button onClick={(e) => handleViewEvent(id)}>View</button>
@@ -66,10 +60,10 @@ const UpcomingEvents = () => {
           )}
         </ul>
       ) : (
-        <div className="box">No upcoming events</div>
+        <div className="box">No pending events</div>
       )}
     </div>
   );
 };
 
-export default UpcomingEvents;
+export default PendingEvents;
