@@ -3,7 +3,8 @@
   top: 0;
   height: 64px;
   width: 100%;
-  background-color: black;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
   border-bottom: 0.1px solid gray;
   display: flex;
   align-items: center;
