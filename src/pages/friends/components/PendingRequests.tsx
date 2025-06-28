@@ -1,17 +1,24 @@
-import React, { useEffect, useState } from "react";
+import { PostgrestError } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import { useAuthContext } from "../../../context/AuthContext";
 import {
+  Friendship,
+  getFriend,
   getPendingRequests,
   respondToRequest,
-  Friendship,
 } from "../../../services/friendService";
-import { useAuthContext } from "../../../context/AuthContext";
-import { PostgrestError } from "@supabase/supabase-js";
 
 const PendingRequests = () => {
-  const { user } = useAuthContext();
+  const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
-  const [requests, setRequests] = useState<Friendship[]>([]);
+  const [requests, setRequests] = useState<
+    {
+      friendshipId: string;
+      friendId: string;
+      username: string;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   //to track which request ID being processsed and disable accept and decline buttons for these requests while awaiting response
@@ -21,7 +28,18 @@ const PendingRequests = () => {
     const fetchRequests = async () => {
       try {
         const data = await getPendingRequests(userId);
-        setRequests(data);
+        const friendships = await Promise.all(
+          data.map(async (friendship) => {
+            const friendId = getFriend(userId, friendship);
+            const profile = await getProfile(friendId);
+            return {
+              friendshipId: friendship.id,
+              friendId: getFriend(userId, friendship),
+              username: profile.username,
+            };
+          })
+        );
+        setRequests(friendships);
       } catch (error) {
         if (error instanceof PostgrestError) {
           setErrorMessage(
@@ -42,7 +60,9 @@ const PendingRequests = () => {
 
     respondToRequest(id, status)
       .then(() => {
-        setRequests((prev) => prev.filter((request) => request.id !== id));
+        setRequests((prev) =>
+          prev.filter((request) => request.friendshipId !== id)
+        );
       })
       .catch((error) => {
         setErrorMessage(
@@ -60,35 +80,32 @@ const PendingRequests = () => {
   };
 
   if (loading) return <p>Loading pending requests...</p>;
-  if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
+  if (errorMessage) return <p>{errorMessage}</p>;
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-2">Pending Requests</h2>
+      <h2>Pending Requests</h2>
       {requests.length === 0 ? (
         <p>You have no pending friend requests.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul>
           {requests.map((request) => (
-            <li
-              key={request.id}
-              className="p-2 border rounded flex justify-between items-center"
-            >
-              <span>
-                From: <span className="font-mono">{request.username}</span>
-              </span>
-              <div className="space-x-2">
+            <li key={request.friendshipId}>
+              <div className="box row">
+                From: {request.username}
                 <button
-                  onClick={() => handleResponse(request.id, "accepted")}
-                  disabled={processingIDs.includes(request.id)}
-                  className="px-2 py-1 bg-green-500 text-white rounded disabled:opacity-50"
+                  onClick={() =>
+                    handleResponse(request.friendshipId, "accepted")
+                  }
+                  disabled={processingIDs.includes(request.friendshipId)}
                 >
                   Accept
                 </button>
                 <button
-                  onClick={() => handleResponse(request.id, "declined")}
-                  disabled={processingIDs.includes(request.id)}
-                  className="px-2 py-1 bg-red-500 text-white rounded disabled:opacity-50"
+                  onClick={() =>
+                    handleResponse(request.friendshipId, "declined")
+                  }
+                  disabled={processingIDs.includes(request.friendshipId)}
                 >
                   Decline
                 </button>

@@ -1,41 +1,46 @@
-import React, { useState, useEffect } from "react";
-import Header from "../../components/header/Header";
-import {
-  UserEvent,
-  EventData,
-  deleteEvent,
-  getEvents,
-  createEvent,
-} from "../../services/calendarService";
 import { PostgrestError } from "@supabase/supabase-js";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
+import {
+  ConfirmedEvent,
+  UserEvent,
+  createEvent,
+  deleteEvent,
+  getEvents,
+} from "../../services/calendarService";
+import Calendar from "./components/Calendar";
+import ImportNUSMods from "./components/ImportNUSMods";
 
 const CalendarPage = () => {
   const { user } = useAuthContext();
   const userId = user!.id;
 
-  const [events, setEvents] = useState<EventData[]>([]);
+  const [events, setEvents] = useState<ConfirmedEvent[]>([]);
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
     description: "",
     start_time: "",
     end_time: "",
   });
+  const [importTimetable, setImportTimetable] = useState(false);
+  const [addEvent, setAddEvent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-
   const fetchEvents = async () => {
+    setLoading(true);
+
     try {
       const events = await getEvents(userId);
       const upcomingEvents = events.filter((event) => event.start_time);
-      setEvents(upcomingEvents);
+      setEvents(upcomingEvents as ConfirmedEvent[]);
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,28 +73,21 @@ const CalendarPage = () => {
     }
   };
 
-  const handleViewEvent = async (eventId: string) => {
-    navigate(`/events/${eventId}`);
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      await deleteEvent(eventId);
-      await fetchEvents();
-    } catch (error) {
-      if (error instanceof PostgrestError) {
-        setError(error.message);
-      }
-    }
-  };
-
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <div className="row">
+        {!addEvent && (
+          <button onClick={(e) => setAddEvent(true)}>Add event</button>
+        )}
 
-      <div className="main">
-        <h1>Calendar</h1>
+        {!importTimetable && (
+          <button onClick={(e) => setImportTimetable(true)}>
+            Import Timetable
+          </button>
+        )}
+      </div>
 
+      {addEvent && (
         <div className="box">
           <div className="column">
             <form className="column" action="" onSubmit={handleAddEvent}>
@@ -141,72 +139,21 @@ const CalendarPage = () => {
 
               <div className="error">{error && <p>{error}</p>}</div>
 
-              <button type="submit" disabled={loading}>
-                Add Event
-              </button>
+              <div className="row">
+                <button onClick={(e) => setAddEvent(false)}>Close</button>
+
+                <button type="submit" disabled={loading}>
+                  Save
+                </button>
+              </div>
             </form>
           </div>
         </div>
-
-        <Calendar
-          values={{ events }}
-          functions={{ handleViewEvent, handleDeleteEvent }}
-        />
-      </div>
-    </div>
-  );
-};
-
-type CalendarProps = {
-  values: {
-    events: EventData[];
-  };
-  functions: {
-    handleViewEvent: (eventId: string) => Promise<void>;
-    handleDeleteEvent: (eventId: string) => Promise<void>;
-  };
-};
-
-const Calendar = ({
-  values: { events },
-  functions: { handleViewEvent, handleDeleteEvent },
-}: CalendarProps) => {
-  const { user } = useAuthContext();
-  const userId = user!.id;
-
-  return (
-    <div>
-      {events.length ? (
-        <ul>
-          {events.map(
-            ({ id, creator_id, title, description, start_time, end_time }) => (
-              <li key={id}>
-                <div className="box row">
-                  <div className="column">
-                    <p>{title}</p>
-                    {description && <p>{description}</p>}
-                    {start_time && (
-                      <p>Start: {new Date(start_time).toLocaleString()}</p>
-                    )}
-                    {end_time && (
-                      <p>End: {new Date(end_time).toLocaleString()}</p>
-                    )}
-                  </div>
-
-                  <button onClick={(e) => handleViewEvent(id)}>View</button>
-                  {userId === creator_id && (
-                    <button onClick={(e) => handleDeleteEvent(id)}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </li>
-            )
-          )}
-        </ul>
-      ) : (
-        <div className="box">No events yet</div>
       )}
+
+      {importTimetable && <ImportNUSMods functions={{ setImportTimetable }} />}
+
+      {!loading ? <Calendar events={events} /> : <p>Loading...</p>}
     </div>
   );
 };

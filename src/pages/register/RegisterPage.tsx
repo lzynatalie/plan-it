@@ -1,11 +1,11 @@
+import { AuthError } from "@supabase/supabase-js";
 import React, { useState } from "react";
-import styles from "./Register.module.css";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
-import { AuthError } from "@supabase/supabase-js";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope, faLock } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import styles from "./Register.module.css";
 
 const RegisterPage = () => {
   const [email, setEmail] = useState("");

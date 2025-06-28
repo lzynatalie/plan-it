@@ -1,18 +1,18 @@
+import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
-import Header from "../../../components/header/Header";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuthContext } from "../../../context/AuthContext";
 import {
   EventData,
   UserEvent,
-  getEvent,
   deleteEvent,
-  updateEvent,
   getAttendees,
+  getEvent,
   getTimings,
+  removeUser,
   respondToInvite,
+  updateEvent,
 } from "../../../services/calendarService";
-import { PostgrestError } from "@supabase/supabase-js";
-import { useAuthContext } from "../../../context/AuthContext";
 
 const EventPage = () => {
   const { user } = useAuthContext();
@@ -76,7 +76,7 @@ const EventPage = () => {
   const handleDeleteEvent = async (eventId: string) => {
     try {
       await deleteEvent(eventId);
-      navigate("/event");
+      navigate("/events");
     } catch (error) {
       if (error instanceof PostgrestError) {
         console.error("Failed to delete event:", error.message);
@@ -84,70 +84,83 @@ const EventPage = () => {
     }
   };
 
+  const handleLeaveEvent = async (eventId: string) => {
+    try {
+      await removeUser(eventId, userId);
+      navigate("/events");
+    } catch (error) {
+      if (error instanceof PostgrestError) {
+        console.error("Failed to remove user from event:", error.message);
+      }
+    }
+  };
+
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <h1>{currentEvent.title}</h1>
 
-      <div className="main">
-        <h1>{currentEvent.title}</h1>
+      <div className="box">
+        <h2>Event Details</h2>
 
-        <div className="box">
-          <h2>Event Details</h2>
-
-          {currentEvent.description && (
-            <p>Description: {currentEvent.description}</p>
-          )}
-          {currentEvent.start_time ? (
-            <p>Start time: {currentEvent.start_time}</p>
-          ) : (
-            "Timing not decided yet"
-          )}
-          {currentEvent.end_time && <p>End time: {currentEvent.end_time}</p>}
-
-          {attendees.length > 0 && (
-            <div>
-              <h2>Attendee List</h2>
-              <ul>
-                {attendees.map(({ id, username }) => (
-                  <li key={id}>
-                    <p>{username}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {!currentEvent.start_time && (
-            <div>
-              <h2>Available Timings</h2>
-              {timings.length > 0 ? (
-                <ol>
-                  {timings.map(({ start, end }, index) => (
-                    <li key={index}>
-                      <p>
-                        {start} - {end}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                "No available timings"
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="error">
-              <p>{error}</p>
-            </div>
-          )}
-        </div>
-
-        {!attendees.map((attendee) => attendee.id).includes(userId) && (
-          <button onClick={(e) => handleJoinEvent()}>Join Event</button>
+        {currentEvent.description && (
+          <p>Description: {currentEvent.description}</p>
+        )}
+        {currentEvent.start_time ? (
+          <p>
+            Start time: {new Date(currentEvent.start_time).toLocaleString()}
+          </p>
+        ) : (
+          "Timing not decided yet"
+        )}
+        {currentEvent.end_time && (
+          <p>End time: {new Date(currentEvent.end_time).toLocaleString()}</p>
         )}
 
-        {!updateEvent && userId === currentEvent.creator_id && (
+        {attendees.length > 0 && (
+          <div>
+            <h2>Attendee List</h2>
+            <ul>
+              {attendees.map(({ id, username }) => (
+                <li key={id}>
+                  <p>{username}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!currentEvent.start_time && (
+          <div>
+            <h2>Available Timings</h2>
+            {timings.length > 0 ? (
+              <ol>
+                {timings.map(({ start, end }, index) => (
+                  <li key={index}>
+                    <p>
+                      {start} - {end}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              "No available timings"
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="error">
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
+
+      {!attendees.map((attendee) => attendee.id).includes(userId) && (
+        <button onClick={(e) => handleJoinEvent()}>Join Event</button>
+      )}
+
+      {!updateEvent &&
+        (userId === currentEvent.creator_id ? (
           <div className="row">
             <button
               onClick={(e) => {
@@ -164,15 +177,18 @@ const EventPage = () => {
               Delete
             </button>
           </div>
-        )}
+        ) : (
+          <button onClick={(e) => handleLeaveEvent(currentEvent.id)}>
+            Leave
+          </button>
+        ))}
 
-        {updateEvent && (
-          <UpdateEvent
-            values={{ currentEvent }}
-            functions={{ setUpdateEvent, setCurrentEvent }}
-          />
-        )}
-      </div>
+      {updateEvent && (
+        <UpdateEvent
+          values={{ currentEvent }}
+          functions={{ setUpdateEvent, setCurrentEvent }}
+        />
+      )}
     </div>
   );
 };

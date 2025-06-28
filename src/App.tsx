@@ -1,13 +1,16 @@
-import HomePage from "./pages/home/HomePage";
+import { Outlet } from "react-router-dom";
+import Header from "./components/header/Header";
 import PrivateRoute from "./components/private-route/PrivateRoute";
-import "./index.css";
+
 import "./App.css";
+import "./index.css";
 
 function App() {
   return (
-    <div>
+    <div className="container">
+      <Header />
       <PrivateRoute>
-        <HomePage />
+        <Outlet />
       </PrivateRoute>
     </div>
   );

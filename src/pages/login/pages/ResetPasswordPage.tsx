@@ -1,11 +1,11 @@
+import { AuthError } from "@supabase/supabase-js";
 import React, { useState } from "react";
-import styles from "../Login.module.css";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
-import { AuthError } from "@supabase/supabase-js";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEnvelope } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import styles from "../Login.module.css";
 
 const ResetPasswordPage = () => {
   const [email, setEmail] = useState("");

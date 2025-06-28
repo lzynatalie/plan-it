@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useAuthContext } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { AuthError } from "@supabase/supabase-js";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../context/AuthContext";
 
-import Header from "../../components/header/Header";
 import profilePicture from "../../components/assets/profile-picture-1.jpg";
+import UpcomingEvents from "../events/components/UpcomingEvents";
 
 const HomePage = () => {
   const [displayName, setDisplayName] = useState("");
@@ -42,36 +42,31 @@ const HomePage = () => {
   };
 
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <h1>Home</h1>
 
-      <div className="main">
-        <h1>Home</h1>
-
-        <div className="box">
-          <div className="row">
-            <img id="profile-picture" src={profilePicture} />
-            <div className="column">
-              <h1>{username}</h1>
-              <h2>{displayName}</h2>
-              <button onClick={handleLogout} disabled={loading}>
-                Logout
-              </button>
-              <div className="error">{error && <p>{error}</p>}</div>
-            </div>
-          </div>
-        </div>
-
+      <div className="box">
         <div className="row">
+          <img id="profile-picture" src={profilePicture} />
           <div className="column">
-            <h2>Notifications</h2>
-            <div className="box">No notifications yet</div>
-          </div>
-          <div className="column">
-            <h2>Upcoming Events</h2>
-            <div className="box">No upcoming events</div>
+            <h1>{username}</h1>
+            <h2>{displayName}</h2>
+            <button onClick={handleLogout} disabled={loading}>
+              Logout
+            </button>
+            <div className="error">{error && <p>{error}</p>}</div>
           </div>
         </div>
+      </div>
+
+      <div className="row">
+        {/* TODO */}
+        <div className="column">
+          <h2>Notifications</h2>
+          <div className="box">No notifications yet</div>
+        </div>
+
+        <UpcomingEvents />
       </div>
     </div>
   );

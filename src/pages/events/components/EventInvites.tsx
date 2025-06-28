@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../../context/AuthContext";
 import {
   EventData,
   getEventInvites,
   respondToInvite,
 } from "../../../services/calendarService";
-import { useAuthContext } from "../../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const EventInvites = () => {
   const { user } = useAuthContext();

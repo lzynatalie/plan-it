@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from "react";
-import Header from "../../../components/header/Header";
+import { PostgrestError } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getUserId } from "../../../services/friendService";
-import { getSharedGroups, Group } from "../../../services/groupService";
+import { useAuthContext } from "../../../context/AuthContext";
 import {
   deleteEvent,
   EventData,
   getSharedEvents,
 } from "../../../services/calendarService";
-import { useAuthContext } from "../../../context/AuthContext";
-import { PostgrestError } from "@supabase/supabase-js";
+import { getUserId } from "../../../services/friendService";
+import { getSharedGroups, Group } from "../../../services/groupService";
 
 const UserPage = () => {
   const { user } = useAuthContext();
@@ -78,70 +77,59 @@ const UserPage = () => {
   };
 
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <h1>{username}</h1>
 
-      <div className="main">
-        <h1>{username}</h1>
+      <h2>Shared Groups</h2>
 
-        <h2>Shared Groups</h2>
+      {groups.length ? (
+        <ul>
+          {groups.map(({ id, name }) => (
+            <li key={id}>
+              <div className="box row">
+                <p>{name}</p>
+                <button onClick={(e) => handleViewGroup(id)}>View</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="box">No shared groups</div>
+      )}
 
-        {groups.length ? (
-          <ul>
-            {groups.map(({ id, name }) => (
+      <h2>Shared Events</h2>
+
+      {events.length ? (
+        <ul>
+          {events.map(
+            ({ id, creator_id, title, description, start_time, end_time }) => (
               <li key={id}>
                 <div className="box row">
-                  <p>{name}</p>
-                  <button onClick={(e) => handleViewGroup(id)}>View</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="box">No shared groups</div>
-        )}
-
-        <h2>Shared Events</h2>
-
-        {events.length ? (
-          <ul>
-            {events.map(
-              ({
-                id,
-                creator_id,
-                title,
-                description,
-                start_time,
-                end_time,
-              }) => (
-                <li key={id}>
-                  <div className="box row">
-                    <div className="column">
-                      <p>{title}</p>
-                      {description && <p>{description}</p>}
-                      {start_time && (
-                        <p>Start: {new Date(start_time).toLocaleString()}</p>
-                      )}
-                      {end_time && (
-                        <p>End: {new Date(end_time).toLocaleString()}</p>
-                      )}
-                    </div>
-
-                    <button onClick={(e) => handleViewEvent(id)}>View</button>
-                    {selfUserId === creator_id && (
-                      <button onClick={(e) => handleDeleteEvent(id)}>
-                        Delete
-                      </button>
+                  <div className="column">
+                    <p>{title}</p>
+                    {description && <p>{description}</p>}
+                    {start_time && (
+                      <p>Start: {new Date(start_time).toLocaleString()}</p>
+                    )}
+                    {end_time && (
+                      <p>End: {new Date(end_time).toLocaleString()}</p>
                     )}
                   </div>
-                </li>
-              )
-            )}
-          </ul>
-        ) : (
-          <div className="box">No shared events</div>
-        )}
-      </div>
+
+                  <button onClick={(e) => handleViewEvent(id)}>View</button>
+                  {selfUserId === creator_id && (
+                    <button onClick={(e) => handleDeleteEvent(id)}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          )}
+        </ul>
+      ) : (
+        <div className="box">No shared events</div>
+      )}
     </div>
   );
 };

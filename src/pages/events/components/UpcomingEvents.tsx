@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../../../context/AuthContext";
 import {
   deleteEvent,
   EventData,
   getEvents,
 } from "../../../services/calendarService";
-import { useAuthContext } from "../../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const UpcomingEvents = () => {
   const { user } = useAuthContext();
@@ -34,7 +34,7 @@ const UpcomingEvents = () => {
   };
 
   return (
-    <div>
+    <div className="column">
       <h2>Upcoming Events</h2>
 
       {events.length > 0 ? (

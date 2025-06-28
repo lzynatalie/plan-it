@@ -1,17 +1,7 @@
-import React, { useEffect, useState } from "react";
-import Header from "../../../components/header/Header";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  Group,
-  addMembers,
-  deleteGroup,
-  getGroup,
-  getGroupEvents,
-  getMembers,
-  removeMember,
-} from "../../../services/groupService";
 import { PostgrestError } from "@supabase/supabase-js";
-import { useAuthContext } from "../../../context/AuthContext";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuthContext, UserData } from "../../../context/AuthContext";
 import {
   createEvent,
   deleteEvent,
@@ -19,9 +9,18 @@ import {
   UserEvent,
 } from "../../../services/calendarService";
 import { getFriend, getFriendships } from "../../../services/friendService";
+import {
+  addMembers,
+  deleteGroup,
+  getGroup,
+  getGroupEvents,
+  getMembers,
+  Group,
+  removeMember,
+} from "../../../services/groupService";
 
 const GroupPage = () => {
-  const { user } = useAuthContext();
+  const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
   const [group, setGroup] = useState<Group>({
@@ -36,12 +35,14 @@ const GroupPage = () => {
     {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[]
   >([]);
   const [friends, setFriends] = useState<
     {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[]
   >([]);
   const [events, setEvents] = useState<EventData[]>([]);
@@ -99,6 +100,9 @@ const GroupPage = () => {
     await removeMember(memberId, group.id);
     const members = await getMembers(group.id);
     setMembers(members);
+    if (memberId === userId) {
+      navigate("/groups");
+    }
   };
 
   const handleViewEvent = async (eventId: string) => {
@@ -128,148 +132,156 @@ const GroupPage = () => {
   };
 
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <button onClick={(e) => navigate("/groups")}>Back</button>
 
-      <div className="main">
-        <button onClick={(e) => navigate("/groups")}>Back</button>
+      <h1>{group.name}</h1>
 
-        <h1>{group.name}</h1>
+      <div className="row">
+        <div className="box column">
+          <h2>Members</h2>
 
-        <h2>Members</h2>
+          {!addNewMembers && group.creator_id === userId && (
+            <button onClick={(e) => setAddNewMembers(true)}>Add Members</button>
+          )}
 
-        {!addNewMembers && group.creator_id === userId && (
-          <button onClick={(e) => setAddNewMembers(true)}>Add Members</button>
-        )}
+          {addNewMembers && (
+            <div className="box">
+              {newMembers.length > 0 && (
+                <div>
+                  <h2>New Members</h2>
+                  <ul>
+                    {newMembers.map((member) => (
+                      <li key={member.friendshipId}>
+                        <div className="box row">
+                          <div className="column">
+                            <p>{member.username}</p>
+                          </div>
 
-        {addNewMembers && (
-          <div className="box">
-            {newMembers.length > 0 && (
-              <div>
-                <h2>New Members</h2>
-                <ul>
-                  {newMembers.map((member) => (
-                    <li key={member.friendshipId}>
-                      <div className="box row">
-                        <div className="column">
-                          <p>{member.friendId}</p>
+                          <button
+                            onClick={(e) => {
+                              setNewMembers((prev) =>
+                                prev.filter(
+                                  (m) => m.friendshipId !== member.friendshipId
+                                )
+                              );
+                              setFriends((prev) => [...prev, member]);
+                            }}
+                          >
+                            Remove
+                          </button>
                         </div>
-
-                        <button
-                          onClick={(e) => {
-                            setNewMembers((prev) =>
-                              prev.filter(
-                                (m) => m.friendshipId !== member.friendshipId
-                              )
-                            );
-                            setFriends((prev) => [...prev, member]);
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <AddMembers
-              values={{ userId, members, friends }}
-              functions={{
-                setNewMembers,
-                setFriends,
-                setError,
-              }}
-            />
-            <button onClick={(e) => setAddNewMembers(false)}>Close</button>
-            <button onClick={(e) => handleAddMembers()}>Save</button>
-          </div>
-        )}
-
-        {members.length ? (
-          <ul>
-            {members.map(({ id, username }) => (
-              <li key={id}>
-                <div className="box row">
-                  <p>{username}</p>
-                  {id !== userId && (
-                    <button onClick={(e) => handleViewMember(username)}>
-                      View
-                    </button>
-                  )}
-                  {id !== userId && group.creator_id === userId && (
-                    <button onClick={(e) => handleRemoveMember(id)}>
-                      Remove
-                    </button>
-                  )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="box">No members yet</div>
-        )}
+              )}
+              <AddMembers
+                values={{ userId, members, friends }}
+                functions={{
+                  setNewMembers,
+                  setFriends,
+                  setError,
+                  getProfile,
+                }}
+              />
+              <button onClick={(e) => setAddNewMembers(false)}>Close</button>
+              <button onClick={(e) => handleAddMembers()}>Save</button>
+            </div>
+          )}
 
-        <h2>Events</h2>
-
-        <button onClick={(e) => setCreateNewEvent(true)}>Create Event</button>
-
-        {createNewEvent && (
-          <CreateEvent
-            values={{ userId, groupId: group.id, members }}
-            functions={{ setCreateNewEvent, fetchEvents }}
-          />
-        )}
-
-        {events.length ? (
-          <ul>
-            {events.map(
-              ({
-                id,
-                creator_id,
-                title,
-                description,
-                start_time,
-                end_time,
-              }) => (
+          {members.length ? (
+            <ul>
+              {members.map(({ id, username }) => (
                 <li key={id}>
                   <div className="box row">
-                    <div className="column">
-                      <p>{title}</p>
-                      {description && <p>{description}</p>}
-                      {start_time && (
-                        <p>Start: {new Date(start_time).toLocaleString()}</p>
-                      )}
-                      {end_time && (
-                        <p>End: {new Date(end_time).toLocaleString()}</p>
-                      )}
-                    </div>
-
-                    <button onClick={(e) => handleViewEvent(id)}>View</button>
-                    {userId === creator_id && (
-                      <button onClick={(e) => handleDeleteEvent(id)}>
-                        Delete
+                    <p>{username}</p>
+                    {id !== userId && (
+                      <button onClick={(e) => handleViewMember(username)}>
+                        View
+                      </button>
+                    )}
+                    {id !== userId && group.creator_id === userId && (
+                      <button onClick={(e) => handleRemoveMember(id)}>
+                        Remove
                       </button>
                     )}
                   </div>
                 </li>
-              )
-            )}
-          </ul>
-        ) : (
-          <div className="box">No events yet</div>
-        )}
+              ))}
+            </ul>
+          ) : (
+            <div className="box">No members yet</div>
+          )}
+        </div>
 
-        {error && (
-          <div className="error">
-            <p>{error}</p>
-          </div>
-        )}
+        <div className="box column">
+          <h2>Events</h2>
 
-        {groupId && group.creator_id === userId && (
-          <button onClick={(e) => handleDeleteGroup()}>Delete Group</button>
-        )}
+          <button onClick={(e) => setCreateNewEvent(true)}>Create Event</button>
+
+          {createNewEvent && (
+            <CreateEvent
+              values={{ userId, groupId: group.id, members }}
+              functions={{ setCreateNewEvent, fetchEvents }}
+            />
+          )}
+
+          {events.length ? (
+            <ul>
+              {events.map(
+                ({
+                  id,
+                  creator_id,
+                  title,
+                  description,
+                  start_time,
+                  end_time,
+                }) => (
+                  <li key={id}>
+                    <div className="box row">
+                      <div className="column">
+                        <p>{title}</p>
+                        {description && <p>{description}</p>}
+                        {start_time && (
+                          <p>Start: {new Date(start_time).toLocaleString()}</p>
+                        )}
+                        {end_time && (
+                          <p>End: {new Date(end_time).toLocaleString()}</p>
+                        )}
+                      </div>
+
+                      <button onClick={(e) => handleViewEvent(id)}>View</button>
+                      {userId === creator_id && (
+                        <button onClick={(e) => handleDeleteEvent(id)}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )
+              )}
+            </ul>
+          ) : (
+            <div className="box">No events yet</div>
+          )}
+        </div>
       </div>
+
+      {error && (
+        <div className="error">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {groupId &&
+        (group.creator_id === userId ? (
+          <button onClick={(e) => handleDeleteGroup()}>Delete Group</button>
+        ) : (
+          <button onClick={(e) => handleRemoveMember(userId)}>
+            Leave Group
+          </button>
+        ))}
     </div>
   );
 };
@@ -281,6 +293,7 @@ type AddMembersProps = {
     friends: {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[];
   };
   functions: {
@@ -289,6 +302,7 @@ type AddMembersProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
@@ -297,30 +311,40 @@ type AddMembersProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
     setError: React.Dispatch<React.SetStateAction<string>>;
+    getProfile: (userId?: string) => Promise<UserData>;
   };
 };
 
 const AddMembers = ({
   values: { userId, members, friends },
-  functions: { setNewMembers, setFriends, setError },
+  functions: { setNewMembers, setFriends, setError, getProfile },
 }: AddMembersProps) => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
         const friendships = await getFriendships();
         const memberIds = members.map((member) => member.id);
-        const friends = friendships
-          .filter(
-            (friendship) => !memberIds.includes(getFriend(userId, friendship))
-          )
-          .map((friendship) => ({
-            friendshipId: friendship.id,
-            friendId: getFriend(userId, friendship),
-          }));
+        const friends = await Promise.all(
+          friendships
+            .filter(
+              (friendship) => !memberIds.includes(getFriend(userId, friendship))
+            )
+            .map(async (friendship) => {
+              const friendId = getFriend(userId, friendship);
+              const profile = await getProfile(friendId);
+              return {
+                friendshipId: friendship.id,
+                friendId: getFriend(userId, friendship),
+                username: profile.username,
+              };
+            })
+        );
+
         setFriends(friends);
       } catch (error) {
         if (error instanceof PostgrestError) {
@@ -342,7 +366,7 @@ const AddMembers = ({
             <li key={friend.friendshipId}>
               <div className="box row">
                 <div className="column">
-                  <p>{friend.friendId}</p>
+                  <p>{friend.username}</p>
                 </div>
 
                 <button
@@ -414,6 +438,7 @@ const CreateEvent = ({
         setError(error.message);
       }
     } finally {
+      setCreateNewEvent(false);
       setLoading(false);
     }
   };
