@@ -145,6 +145,34 @@ export async function addMember(
  * @param groupId
  */
 export async function removeMember(memberId: string, groupId: string) {
+  const { data: groupEvents, error: eventError } = await supabase
+    .from("event")
+    .select("id")
+    .eq("group_id", groupId);
+
+  if (eventError) {
+    console.error("Failed to fetch group events:", eventError.message);
+    throw eventError;
+  }
+
+  const eventIds = groupEvents.map((event) => event.id);
+
+  if (eventIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("user_event")
+      .delete()
+      .in("event_id", eventIds)
+      .eq("user_id", memberId);
+
+    if (deleteError) {
+      console.error(
+        "Failed to remove user from group events:",
+        deleteError.message
+      );
+      throw deleteError;
+    }
+  }
+
   const { error } = await supabase
     .from("user_group")
     .delete()

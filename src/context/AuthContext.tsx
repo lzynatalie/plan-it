@@ -1,11 +1,11 @@
+import { AuthError, Session, User, WeakPassword } from "@supabase/supabase-js";
 import {
   createContext,
+  ReactNode,
+  useContext,
   useEffect,
   useState,
-  useContext,
-  ReactNode,
 } from "react";
-import { AuthError, Session, User, WeakPassword } from "@supabase/supabase-js";
 import { supabase } from "../config/supabaseClient";
 
 type Auth = {

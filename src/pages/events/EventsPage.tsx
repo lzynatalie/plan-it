@@ -1,30 +1,28 @@
+import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
-import Header from "../../components/header/Header";
+import { useAuthContext, UserData } from "../../context/AuthContext";
 import { createEvent, UserEvent } from "../../services/calendarService";
 import { getFriend, getFriendships } from "../../services/friendService";
-import { PostgrestError } from "@supabase/supabase-js";
-import { useAuthContext } from "../../context/AuthContext";
 import EventInvites from "./components/EventInvites";
-import UpcomingEvents from "./components/UpcomingEvents";
 import PendingEvents from "./components/PendingEvents";
+import UpcomingEvents from "./components/UpcomingEvents";
 
 const EventsPage = () => {
   const [createEvent, setCreateEvent] = useState(false);
 
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <h1>Events</h1>
 
-      <div className="main">
-        <h1>Events</h1>
+      {createEvent && <CreateEvent functions={{ setCreateEvent }} />}
 
-        {createEvent && <CreateEvent functions={{ setCreateEvent }} />}
+      {!createEvent && (
+        <button onClick={(e) => setCreateEvent(true)}>Create Event</button>
+      )}
 
-        {!createEvent && (
-          <button onClick={(e) => setCreateEvent(true)}>Create Event</button>
-        )}
+      <EventInvites />
 
-        <EventInvites />
+      <div className="row">
         <PendingEvents />
         <UpcomingEvents />
       </div>
@@ -39,7 +37,7 @@ type CreateEventProps = {
 };
 
 const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
-  const { user } = useAuthContext();
+  const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
   const [newEvent, setNewEvent] = useState<UserEvent>({
@@ -49,10 +47,10 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
     end_time: null,
   });
   const [invitees, setInvitees] = useState<
-    { friendshipId: string; friendId: string }[]
+    { friendshipId: string; friendId: string; username: string }[]
   >([]);
   const [friends, setFriends] = useState<
-    { friendshipId: string; friendId: string }[]
+    { friendshipId: string; friendId: string; username: string }[]
   >([]);
   const [inviteFriends, setInviteFriends] = useState(false);
   const [error, setError] = useState("");
@@ -127,7 +125,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
             <li key={invitee.friendshipId}>
               <div className="box row">
                 <div className="column">
-                  <p>{invitee.friendId}</p>
+                  <p>{invitee.username}</p>
                 </div>
 
                 <button
@@ -150,7 +148,13 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
         {inviteFriends && (
           <InviteFriends
             values={{ userId, friends }}
-            functions={{ setInvitees, setFriends, setInviteFriends, setError }}
+            functions={{
+              setInvitees,
+              setFriends,
+              setInviteFriends,
+              setError,
+              getProfile,
+            }}
           />
         )}
 
@@ -183,6 +187,7 @@ type InviteFriendsProps = {
     friends: {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[];
   };
   functions: {
@@ -191,6 +196,7 @@ type InviteFriendsProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
@@ -199,26 +205,42 @@ type InviteFriendsProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
     setInviteFriends: React.Dispatch<React.SetStateAction<boolean>>;
     setError: React.Dispatch<React.SetStateAction<string>>;
+    getProfile: (userId?: string) => Promise<UserData>;
   };
 };
 
 const InviteFriends = ({
   values: { userId, friends },
-  functions: { setInvitees, setFriends, setInviteFriends, setError },
+  functions: {
+    setInvitees,
+    setFriends,
+    setInviteFriends,
+    setError,
+    getProfile,
+  },
 }: InviteFriendsProps) => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
         const friendships = await getFriendships();
-        const friends = friendships.map((friendship) => ({
-          friendshipId: friendship.id,
-          friendId: getFriend(userId, friendship),
-        }));
+        const friends = await Promise.all(
+          friendships.map(async (friendship) => {
+            const friendId = getFriend(userId, friendship);
+            const profile = await getProfile(friendId);
+            return {
+              friendshipId: friendship.id,
+              friendId: getFriend(userId, friendship),
+              username: profile.username,
+            };
+          })
+        );
+
         setFriends(friends);
       } catch (error) {
         if (error instanceof PostgrestError) {
@@ -240,7 +262,7 @@ const InviteFriends = ({
             <li key={friend.friendshipId}>
               <div className="box row">
                 <div className="column">
-                  <p>{friend.friendId}</p>
+                  <p>{friend.username}</p>
                 </div>
 
                 <button

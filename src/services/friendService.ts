@@ -1,12 +1,10 @@
 import { supabase } from "../config/supabaseClient";
-import { useAuthContext } from "../context/AuthContext";
 
 export type Friendship = {
-    id: string;
-    sender_id: string;
-    recipient_id: string;
-    status: "pending" | "accepted" | "declined";
-    username?: string;
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  status: "pending" | "accepted" | "declined";
 };
 
 /**
@@ -30,22 +28,26 @@ export async function getFriendships(): Promise<Friendship[]> {
 
 /**
  * Returns the friend of the user given a friendship
- * 
- * @param userId 
- * @param friendship 
+ *
+ * @param userId
+ * @param friendship
  * @returns friend id
  */
 export function getFriend(userId: string, friendship: Friendship): string {
-  return userId === friendship.sender_id ? friendship.recipient_id : friendship.sender_id;
-} 
+  return userId === friendship.sender_id
+    ? friendship.recipient_id
+    : friendship.sender_id;
+}
 
 /**
  * Fetches the user's incoming friend requests
- * 
- * @param userId 
+ *
+ * @param userId
  * @returns list of friendships
  */
-export async function getPendingRequests(userId: string): Promise<Friendship[]> {
+export async function getPendingRequests(
+  userId: string
+): Promise<Friendship[]> {
   const { data, error } = await supabase
     .from("friendship")
     .select()
@@ -62,9 +64,9 @@ export async function getPendingRequests(userId: string): Promise<Friendship[]> 
 
 /**
  * Sends friend request to another user
- * 
- * @param senderId 
- * @param recipientId 
+ *
+ * @param senderId
+ * @param recipientId
  */
 export async function sendFriendRequest(senderId: string, recipientId: string) {
   const { data, error } = await supabase
@@ -86,7 +88,9 @@ export async function sendFriendRequest(senderId: string, recipientId: string) {
 
   const { error: insertError } = await supabase
     .from("friendship")
-    .insert([{ sender_id: senderId, recipient_id: recipientId, status: "pending" }]);
+    .insert([
+      { sender_id: senderId, recipient_id: recipientId, status: "pending" },
+    ]);
 
   if (insertError) {
     console.error("failed to send friend request:", insertError.message);
@@ -96,9 +100,9 @@ export async function sendFriendRequest(senderId: string, recipientId: string) {
 
 /**
  * Accepts or declines a friend request
- * 
- * @param friendshipId 
- * @param status 
+ *
+ * @param friendshipId
+ * @param status
  */
 export async function respondToRequest(
   friendshipId: string,
@@ -117,13 +121,11 @@ export async function respondToRequest(
 
 /**
  * Fetches a user's id given their username
- * 
- * @param username 
- * @returns 
+ *
+ * @param username
+ * @returns
  */
-export async function getUserId(
-  username: string
-): Promise<string | null> {
+export async function getUserId(username: string): Promise<string | null> {
   const { data, error } = await supabase
     .from("user")
     .select("id")
@@ -143,17 +145,17 @@ export async function getUserId(
 
 /**
  * Deletes a friendship
- * 
+ *
  * @param friendshipId
  */
 export async function deleteFriendship(friendshipId: string): Promise<void> {
-    const { error } = await supabase
+  const { error } = await supabase
     .from("friendship")
     .delete()
     .eq("id", friendshipId);
 
-    if (error) {
-        console.error("Failed to delete friendship:", error.message);
-        throw error;
-    }
+  if (error) {
+    console.error("Failed to delete friendship:", error.message);
+    throw error;
+  }
 }

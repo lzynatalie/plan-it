@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { sendFriendRequest, getUserId } from "../../../services/friendService";
-import { useAuthContext } from "../../../context/AuthContext";
 import { PostgrestError } from "@supabase/supabase-js";
+import { useState } from "react";
+import { useAuthContext } from "../../../context/AuthContext";
+import { getUserId, sendFriendRequest } from "../../../services/friendService";
 
 const SendFriendRequest = () => {
   const { user } = useAuthContext();

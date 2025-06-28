@@ -5,10 +5,20 @@ export type EventData = {
   id: string;
   creator_id: string;
   group_id?: string | null;
-  title: string;
+  title?: string;
   description?: string;
   start_time?: string | null;
   end_time?: string | null;
+};
+
+export type ConfirmedEvent = {
+  id: string;
+  creator_id: string;
+  group_id: string | null;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
 };
 
 export type UserEvent = Omit<EventData, "id" | "creator_id">;
@@ -119,6 +129,36 @@ export async function createEvent(
 
   if (attendeeIds) {
     await sendEventInvites(eventId, attendeeIds);
+  }
+}
+
+/**
+ * Adds events created by the user
+ *
+ * @param events
+ */
+export async function addEvents(events: UserEvent[]) {
+  const { data, error } = await supabase
+    .from("event")
+    .insert(events)
+    .select("id");
+
+  if (error) {
+    console.error("Failed to add events:", error.message);
+    throw error;
+  }
+
+  const newEvents: { event_id: string; status: string }[] = data.map(
+    (event) => ({ event_id: event.id, status: "attending" })
+  );
+
+  const { error: eventError } = await supabase
+    .from("user_event")
+    .insert(newEvents);
+
+  if (eventError) {
+    console.error("Failed to add events:", eventError.message);
+    throw error;
   }
 }
 
@@ -284,6 +324,25 @@ export async function addAttendee(eventId: string, attendeeId: string) {
 
   if (error) {
     console.error("Failed to add attendee:", error.message);
+    throw error;
+  }
+}
+
+/**
+ * Removes a user from an event
+ *
+ * @param eventId
+ * @param userId
+ */
+export async function removeUser(eventId: string, userId: string) {
+  const { error } = await supabase
+    .from("user_event")
+    .delete()
+    .eq("user_id", userId)
+    .eq("event_id", eventId);
+
+  if (error) {
+    console.error("Failed to remove user:", error.message);
     throw error;
   }
 }

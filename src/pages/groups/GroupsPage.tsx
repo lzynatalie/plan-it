@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from "react";
-import Header from "../../components/header/Header";
-import { Group, getGroups, createGroup } from "../../services/groupService";
 import { PostgrestError } from "@supabase/supabase-js";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthContext } from "../../context/AuthContext";
+import { useAuthContext, UserData } from "../../context/AuthContext";
 import { getFriend, getFriendships } from "../../services/friendService";
+import { Group, createGroup, getGroups } from "../../services/groupService";
 
 const GroupsPage = () => {
-  const { user } = useAuthContext();
+  const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -16,12 +15,14 @@ const GroupsPage = () => {
     {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[]
   >([]);
   const [friends, setFriends] = useState<
     {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[]
   >([]);
   const [createNewGroup, setCreateNewGroup] = useState(false);
@@ -56,51 +57,48 @@ const GroupsPage = () => {
   };
 
   return (
-    <div className="container">
-      <Header />
+    <div className="main">
+      <h1>Groups</h1>
 
-      <div className="main">
-        <h1>Groups</h1>
+      {createNewGroup && (
+        <CreateGroup
+          values={{ userId, groupName, members, friends }}
+          functions={{
+            setGroupName,
+            setMembers,
+            setFriends,
+            setCreateNewGroup,
+            setError,
+            handleCreateGroup,
+            getProfile,
+          }}
+        />
+      )}
 
-        {createNewGroup && (
-          <CreateGroup
-            values={{ userId, groupName, members, friends }}
-            functions={{
-              setGroupName,
-              setMembers,
-              setFriends,
-              setCreateNewGroup,
-              setError,
-              handleCreateGroup,
-            }}
-          />
-        )}
+      {!createNewGroup && (
+        <button onClick={(e) => setCreateNewGroup(true)}>Create group</button>
+      )}
 
-        {!createNewGroup && (
-          <button onClick={(e) => setCreateNewGroup(true)}>Create group</button>
-        )}
+      {groups.length ? (
+        <ul>
+          {groups.map(({ id, name }) => (
+            <li key={id}>
+              <div className="box row">
+                <p>{name}</p>
+                <button onClick={(e) => handleViewGroup(id)}>View</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="box">No groups yet</div>
+      )}
 
-        {groups.length ? (
-          <ul>
-            {groups.map(({ id, name }) => (
-              <li key={id}>
-                <div className="box row">
-                  <p>{name}</p>
-                  <button onClick={(e) => handleViewGroup(id)}>View</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          "No groups yet"
-        )}
-
-        {error && (
-          <div className="error">
-            <p>{error}</p>
-          </div>
-        )}
-      </div>
+      {error && (
+        <div className="error">
+          <p>{error}</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -112,10 +110,12 @@ type CreateGroupProps = {
     members: {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[];
     friends: {
       friendshipId: string;
       friendId: string;
+      username: string;
     }[];
   };
   functions: {
@@ -125,6 +125,7 @@ type CreateGroupProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
@@ -133,12 +134,14 @@ type CreateGroupProps = {
         {
           friendshipId: string;
           friendId: string;
+          username: string;
         }[]
       >
     >;
     setCreateNewGroup: React.Dispatch<React.SetStateAction<boolean>>;
     setError: React.Dispatch<React.SetStateAction<string>>;
     handleCreateGroup: () => Promise<void>;
+    getProfile: (userId?: string) => Promise<UserData>;
   };
 };
 
@@ -151,16 +154,24 @@ const CreateGroup = ({
     setCreateNewGroup,
     setError,
     handleCreateGroup,
+    getProfile,
   },
 }: CreateGroupProps) => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
         const friendships = await getFriendships();
-        const friends = friendships.map((friendship) => ({
-          friendshipId: friendship.id,
-          friendId: getFriend(userId, friendship),
-        }));
+        const friends = await Promise.all(
+          friendships.map(async (friendship) => {
+            const friendId = getFriend(userId, friendship);
+            const profile = await getProfile(friendId);
+            return {
+              friendshipId: friendship.id,
+              friendId: getFriend(userId, friendship),
+              username: profile.username,
+            };
+          })
+        );
         setFriends(friends);
       } catch (error) {
         if (error instanceof PostgrestError) {
@@ -188,7 +199,7 @@ const CreateGroup = ({
           <li key={member.friendshipId}>
             <div className="box row">
               <div className="column">
-                <p>{member.friendId}</p>
+                <p>{member.username}</p>
               </div>
 
               <button
@@ -214,7 +225,7 @@ const CreateGroup = ({
             <li key={friend.friendshipId}>
               <div className="box row">
                 <div className="column">
-                  <p>{friend.friendId}</p>
+                  <p>{friend.username}</p>
                 </div>
 
                 <button
