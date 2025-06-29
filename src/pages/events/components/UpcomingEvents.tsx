@@ -16,7 +16,9 @@ const UpcomingEvents = () => {
 
   const fetchEvents = async () => {
     const events = await getEvents(userId);
-    const upcomingEvents = events.filter((event) => event.start_time);
+    const upcomingEvents = events.filter(
+      (event) => event.start_time && new Date(event.start_time) > new Date()
+    );
     setEvents(upcomingEvents);
   };
 
