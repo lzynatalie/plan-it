@@ -196,7 +196,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
-      options: { emailRedirectTo: "http://localhost:3000/create-profile" },
+      options: {
+        emailRedirectTo: "https://shanat2-0.vercel.app/create-profile",
+      },
     });
 
     if (error) {
@@ -268,7 +270,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     await checkEmail(email, true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/update-password",
+      redirectTo: "https://shanat2-0.vercel.app/update-password",
     });
 
     if (error) {
