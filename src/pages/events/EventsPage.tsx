@@ -54,6 +54,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
   >([]);
   const [inviteFriends, setInviteFriends] = useState(false);
   const [error, setError] = useState("");
+  const[success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,6 +65,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
     try {
       const inviteeIds = invitees.map((invitee) => invitee.friendId);
       await createEvent(newEvent, userId, inviteeIds);
+
       setNewEvent({
         title: "",
         description: "",
@@ -72,6 +74,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
       });
       setInvitees([]);
       setInviteFriends(false);
+      setSuccess("Event created successfully!")
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -167,6 +170,12 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
         {error && (
           <div className="error">
             <p>{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="success">
+            <p>{success}</p>
           </div>
         )}
 

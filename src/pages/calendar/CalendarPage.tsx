@@ -27,6 +27,7 @@ const CalendarPage = () => {
   const [addEvent, setAddEvent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -64,6 +65,8 @@ const CalendarPage = () => {
         start_time: "",
         end_time: "",
       });
+
+      setSuccess("Event created successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -138,6 +141,12 @@ const CalendarPage = () => {
               />
 
               <div className="error">{error && <p>{error}</p>}</div>
+
+              {success && (
+                <div className="success">
+                  <p>{success}</p>
+                </div>
+              )}
 
               <div className="row">
                 <button onClick={(e) => setAddEvent(false)}>Close</button>
