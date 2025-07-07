@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { addEvents, UserEvent } from "../../../services/calendarService";
+import { addEvents, deleteNUSMODsEvents, UserEvent } from "../../../services/calendarService";
+import { useAuthContext } from "../../../context/AuthContext";
 
 type Module = {
   semesterData: SemesterData[];
@@ -82,10 +83,13 @@ type ImportNUSModsProps = {
 const ImportNUSMods = ({
   functions: { setImportTimetable, fetchEvents },
 }: ImportNUSModsProps) => {
+  const { user } = useAuthContext();
+
   const [url, setUrl] = useState("");
   const [timetable, setTimetable] = useState<UserEvent[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const getMods = (url: string) => {
     const params = new URL(url).searchParams;
@@ -225,23 +229,31 @@ const ImportNUSMods = ({
 
     setTimetable(timetable);
 
-    await addEvents(timetable);
+    await addEvents(timetable, "nusmods");
   };
 
   const handleImport = async () => {
     setError("");
     setSuccess(false);
+    setLoading(true);
+
     const mods = getMods(url);
     if (!mods) {
       setError("Invalid NUSMods Timetable");
+      setLoading(false);
       return;
     }
+
     try {
+      await deleteNUSMODsEvents(user!.id);
       await fetchSchedule(mods);
       await fetchEvents();
       setSuccess(true);
-    } catch (error) {
+    } catch (error:any ) {
+      console.error("Timetable import failed:", error);
       setError("Failed to import timetable.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -257,7 +269,7 @@ const ImportNUSMods = ({
 
       <div className="row">
         <button onClick={(e) => setImportTimetable(false)}>Close</button>
-        <button onClick={handleImport}>Import Timetable</button>
+        <button onClick={handleImport} disabled={loading}>Import Timetable</button>
       </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
       {success && (

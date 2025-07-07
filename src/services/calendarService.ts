@@ -137,10 +137,14 @@ export async function createEvent(
  *
  * @param events
  */
-export async function addEvents(events: UserEvent[]) {
+export async function addEvents(events: UserEvent[], source?: string) {
+  const eventsToInsert = source
+  ? events.map((event) => ({ ...event, source }))
+  : events;
+
   const { data, error } = await supabase
     .from("event")
-    .insert(events)
+    .insert(eventsToInsert)
     .select("id");
 
   if (error) {
@@ -420,4 +424,40 @@ function getMissingIntervals(
   }
 
   return missing;
+}
+
+/**
+ * Deletes all events created by user that were imported from NUSMods
+ * 
+ * @param userId 
+ */
+export async function deleteNUSMODsEvents(userId: string) {
+  const { data, error: checkError } = await supabase
+    .from("event")
+    .select("id")
+    .eq("creator_id", userId)
+    .eq("source", "nusmods");
+
+  if (checkError) {
+    console.error("Error checking NUSMODs events:", checkError.message);
+    throw new Error("Failed to check existing timetable.");
+  }
+
+  if (data.length === 0) return;
+
+  const confirm = window.confirm(
+    "This action will delete your previously imported NUSMODs timetable. Continue?"
+  );
+  if (!confirm) return;
+
+  const { error: deleteError } = await supabase
+    .from("event")
+    .delete()
+    .eq("creator_id", userId)
+    .eq("source", "nusmods");
+
+  if (deleteError) {
+    console.error("Failed to delete previous timetable:", deleteError.message);
+    throw new Error("Could not delete previous timetable.");
+  }
 }
