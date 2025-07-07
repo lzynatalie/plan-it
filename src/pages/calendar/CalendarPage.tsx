@@ -151,7 +151,7 @@ const CalendarPage = () => {
         </div>
       )}
 
-      {importTimetable && <ImportNUSMods functions={{ setImportTimetable }} />}
+      {importTimetable && <ImportNUSMods functions={{ setImportTimetable, fetchEvents}} />}
 
       {!loading ? <Calendar events={events} /> : <p>Loading...</p>}
     </div>

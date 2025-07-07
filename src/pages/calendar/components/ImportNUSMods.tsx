@@ -75,15 +75,17 @@ const days = {
 type ImportNUSModsProps = {
   functions: {
     setImportTimetable: React.Dispatch<React.SetStateAction<boolean>>;
+    fetchEvents: () => Promise<void>;
   };
 };
 
 const ImportNUSMods = ({
-  functions: { setImportTimetable },
+  functions: { setImportTimetable, fetchEvents },
 }: ImportNUSModsProps) => {
   const [url, setUrl] = useState("");
   const [timetable, setTimetable] = useState<UserEvent[]>([]);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const getMods = (url: string) => {
     const params = new URL(url).searchParams;
@@ -228,12 +230,19 @@ const ImportNUSMods = ({
 
   const handleImport = async () => {
     setError("");
+    setSuccess(false);
     const mods = getMods(url);
     if (!mods) {
       setError("Invalid NUSMods Timetable");
       return;
     }
-    await fetchSchedule(mods);
+    try {
+      await fetchSchedule(mods);
+      await fetchEvents();
+      setSuccess(true);
+    } catch (error) {
+      setError("Failed to import timetable.");
+    }
   };
 
   return (
@@ -251,6 +260,11 @@ const ImportNUSMods = ({
         <button onClick={handleImport}>Import Timetable</button>
       </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
+      {success && (
+        <p style={{ color: "green"}}>
+          Timetable imported successfully!
+        </p>
+      )}
     </div>
   );
 };
