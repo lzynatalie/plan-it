@@ -1,7 +1,7 @@
 import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
 import { useAuthContext, UserData } from "../../context/AuthContext";
-import { createEvent, UserEvent } from "../../services/calendarService";
+import { createEvent, getEvents, UserEvent } from "../../services/calendarService";
 import { getFriend, getFriendships } from "../../services/friendService";
 import EventInvites from "./components/EventInvites";
 import PendingEvents from "./components/PendingEvents";
@@ -69,6 +69,35 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
         setLoading(false);
         setError("End time must be after start time!");
         return;
+      }
+
+      try {
+        const existingEvents = await getEvents(userId);
+
+        const conflictingEvent = existingEvents.find((event) => {
+          return (
+            event.start_time &&
+            event.end_time &&
+            new Date(newEvent.start_time!) < new Date(event.end_time) &&
+            new Date(newEvent.end_time!) > new Date(event.start_time)
+          );
+        });
+        
+        if (conflictingEvent) {
+          const formattedStart = new Date(conflictingEvent.start_time!).toLocaleString();
+          const formattedEnd = new Date(conflictingEvent.end_time!).toLocaleString();
+          setError(
+            `Event clashes with "${conflictingEvent.title}" on ${formattedStart} - ${formattedEnd}`
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        if (error instanceof PostgrestError) {
+          setError("Failed to check for clashes: " + error.message);
+          setLoading(false);
+          return;
+        }
       }
     }
 
