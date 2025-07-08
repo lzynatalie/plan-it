@@ -62,6 +62,16 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
     setError("");
     setLoading(true);
 
+    if (newEvent.start_time && newEvent.end_time) {
+      const start = new Date(newEvent.start_time);
+      const end = new Date(newEvent.end_time);
+      if (end <= start) {
+        setLoading(false);
+        setError("End time must be after start time!");
+        return;
+      }
+    }
+
     try {
       const inviteeIds = invitees.map((invitee) => invitee.friendId);
       await createEvent(newEvent, userId, inviteeIds);
