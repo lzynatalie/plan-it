@@ -54,6 +54,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
   >([]);
   const [inviteFriends, setInviteFriends] = useState(false);
   const [error, setError] = useState("");
+  const[success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,6 +65,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
     try {
       const inviteeIds = invitees.map((invitee) => invitee.friendId);
       await createEvent(newEvent, userId, inviteeIds);
+
       setNewEvent({
         title: "",
         description: "",
@@ -72,6 +74,7 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
       });
       setInvitees([]);
       setInviteFriends(false);
+      setSuccess("Event created successfully!")
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -84,40 +87,62 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
   return (
     <div className="box">
       <form className="column" action="" onSubmit={handleCreateEvent}>
-        <input
+        <div className="input-group">
+          <label htmlFor="title">Title</label>
+          <input
+          id="title"
           type="text"
-          placeholder="Title"
+          placeholder="e.g. Project meeting"
           value={newEvent.title}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, title: e.target.value }))
           }
           required
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="description">Description</label>
+          <input
+          id="description"
           type="text"
-          placeholder="Description"
+          placeholder="Optional: add more details"
           value={newEvent.description}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, description: e.target.value }))
           }
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="start_time">Start Time</label>
+          <input
+          id="start_time"
           type="datetime-local"
           value={newEvent.start_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
           }
         />
+        <small className="helper-text">
+          Leave empty to let Plan-It! suggest a timing!
+        </small>
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="end_time">End Time</label>
+          <input
+          id="end_time"
           type="datetime-local"
           value={newEvent.end_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
           }
         />
+        <small className="helper-text">
+          Leave empty to let Plan-It! suggest a timing!
+        </small>
+        </div>    
 
         <ul>
           <h2>Invite List</h2>
@@ -167,6 +192,12 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
         {error && (
           <div className="error">
             <p>{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="success">
+            <p>{success}</p>
           </div>
         )}
 

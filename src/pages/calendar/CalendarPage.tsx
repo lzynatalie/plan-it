@@ -27,6 +27,7 @@ const CalendarPage = () => {
   const [addEvent, setAddEvent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -53,7 +54,7 @@ const CalendarPage = () => {
     event.preventDefault();
     setError("");
     setLoading(true);
-
+  
     try {
       await createEvent(newEvent, userId);
       await fetchEvents();
@@ -64,6 +65,8 @@ const CalendarPage = () => {
         start_time: "",
         end_time: "",
       });
+
+      setSuccess("Event created successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -91,53 +94,71 @@ const CalendarPage = () => {
         <div className="box">
           <div className="column">
             <form className="column" action="" onSubmit={handleAddEvent}>
-              <input
+              <div className="input-group">
+                <label htmlFor="title">Title</label>
+                <input
+                id="title"
                 type="text"
-                placeholder="Title"
+                placeholder="e.g. Project meeting"
                 value={newEvent.title}
                 onChange={(e) =>
-                  setNewEvent((prev) => ({ ...prev, title: e.target.value }))
+                setNewEvent((prev) => ({ ...prev, title: e.target.value }))
                 }
                 required
               />
+              </div>
 
-              <input
+              <div className="input-group">
+                <label htmlFor="description">Description</label>
+                <input
+                id="description"
                 type="text"
-                placeholder="Description"
+                placeholder="Optional: add more details"
                 value={newEvent.description}
                 onChange={(e) =>
-                  setNewEvent((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
+                  setNewEvent((prev) => ({ ...prev, description: e.target.value }))
                 }
               />
+              </div>
 
-              <input
+              <div className="input-group">
+                <label htmlFor="start_time">Start Time</label>
+                <input
+                id="start_time"
                 type="datetime-local"
+                required
                 value={newEvent.start_time || ""}
                 onChange={(e) =>
-                  setNewEvent((prev) => ({
-                    ...prev,
-                    start_time: e.target.value,
-                  }))
+                  setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
                 }
-                required
               />
+              <small className="helper-text">
+                Leave empty to let Plan-It! suggest a timing!
+              </small>
+              </div>
 
-              <input
+              <div className="input-group">
+                <label htmlFor="end_time">End Time</label>
+                <input
+                id="end_time"
                 type="datetime-local"
+                required
                 value={newEvent.end_time || ""}
                 onChange={(e) =>
-                  setNewEvent((prev) => ({
-                    ...newEvent,
-                    end_time: e.target.value,
-                  }))
+                  setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
                 }
-                required
               />
+              <small className="helper-text">
+                Leave empty to let Plan-It! suggest a timing!
+              </small>
+              </div>    
+                    <div className="error">{error && <p>{error}</p>}</div>
 
-              <div className="error">{error && <p>{error}</p>}</div>
+              {success && (
+                <div className="success">
+                  <p>{success}</p>
+                </div>
+              )}
 
               <div className="row">
                 <button onClick={(e) => setAddEvent(false)}>Close</button>
@@ -151,7 +172,7 @@ const CalendarPage = () => {
         </div>
       )}
 
-      {importTimetable && <ImportNUSMods functions={{ setImportTimetable }} />}
+      {importTimetable && <ImportNUSMods functions={{ setImportTimetable, fetchEvents}} />}
 
       {!loading ? <Calendar events={events} /> : <p>Loading...</p>}
     </div>
