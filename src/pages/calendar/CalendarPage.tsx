@@ -54,6 +54,15 @@ const CalendarPage = () => {
     event.preventDefault();
     setError("");
     setLoading(true);
+
+    const start = new Date(newEvent.start_time!);
+    const end = new Date(newEvent.end_time!);
+
+    if (end <= start) {
+      setLoading(false);
+      setError("End time must be after start time!");
+      return;
+    }
   
     try {
       await createEvent(newEvent, userId);
@@ -99,7 +108,7 @@ const CalendarPage = () => {
                 <input
                 id="title"
                 type="text"
-                placeholder="e.g. Project meeting"
+                placeholder="e.g. Self-study session"
                 value={newEvent.title}
                 onChange={(e) =>
                 setNewEvent((prev) => ({ ...prev, title: e.target.value }))
@@ -132,9 +141,6 @@ const CalendarPage = () => {
                   setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
                 }
               />
-              <small className="helper-text">
-                Leave empty to let Plan-It! suggest a timing!
-              </small>
               </div>
 
               <div className="input-group">
@@ -148,11 +154,9 @@ const CalendarPage = () => {
                   setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
                 }
               />
-              <small className="helper-text">
-                Leave empty to let Plan-It! suggest a timing!
-              </small>
               </div>    
-                    <div className="error">{error && <p>{error}</p>}</div>
+
+              <div className="error">{error && <p>{error}</p>}</div>
 
               {success && (
                 <div className="success">
