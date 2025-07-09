@@ -65,6 +65,28 @@ const CalendarPage = () => {
     }
   
     try {
+      const existingEvents = await getEvents(userId);
+      
+      //check for event clashes
+      const conflictingEvent = existingEvents.find((event) => {
+        return (
+          event.start_time &&
+          event.end_time &&
+          new Date(newEvent.start_time!) < new Date(event.end_time) &&
+          new Date(newEvent.end_time!) > new Date(event.start_time)
+        );
+      });
+      
+      if (conflictingEvent) {
+        const formattedStart = new Date(conflictingEvent.start_time!).toLocaleString();
+        const formattedEnd = new Date(conflictingEvent.end_time!).toLocaleString();
+        setError(
+          `Event clashes with "${conflictingEvent.title}" on ${formattedStart} - ${formattedEnd}`
+        );
+        setLoading(false);
+        return;
+      }
+
       await createEvent(newEvent, userId);
       await fetchEvents();
       // event added, set to clean slate for next event
