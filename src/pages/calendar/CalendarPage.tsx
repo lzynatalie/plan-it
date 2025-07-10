@@ -58,7 +58,7 @@ const CalendarPage = () => {
     const start = new Date(newEvent.start_time!);
     const end = new Date(newEvent.end_time!);
 
-    if (end <= start) {
+    if (end < start) {
       setLoading(false);
       setError("End time must be after start time!");
       return;
@@ -69,6 +69,7 @@ const CalendarPage = () => {
       
       //check for event clashes
       const conflictingEvent = existingEvents.find((event) => {
+
         return (
           event.start_time &&
           event.end_time &&
