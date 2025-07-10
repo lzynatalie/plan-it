@@ -12,6 +12,7 @@ import {
   removeUser,
   respondToInvite,
   updateEvent,
+  getEvents
 } from "../../../services/calendarService";
 
 const EventPage = () => {
@@ -33,6 +34,7 @@ const EventPage = () => {
   const [timings, setTimings] = useState<{ start: string; end: string }[]>([]);
   const [updateEvent, setUpdateEvent] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -186,8 +188,14 @@ const EventPage = () => {
       {updateEvent && (
         <UpdateEvent
           values={{ currentEvent }}
-          functions={{ setUpdateEvent, setCurrentEvent }}
+          functions={{ setUpdateEvent, setCurrentEvent, setSuccess }}
         />
+      )}
+
+      {success && (
+        <div className="success">
+          <p>{success}</p>
+        </div>
       )}
     </div>
   );
@@ -200,12 +208,13 @@ type UpdateEventProps = {
   functions: {
     setUpdateEvent: React.Dispatch<React.SetStateAction<boolean>>;
     setCurrentEvent: React.Dispatch<React.SetStateAction<EventData>>;
+    setSuccess: React.Dispatch<React.SetStateAction<string>>;
   };
 };
 
 const UpdateEvent = ({
   values: { currentEvent },
-  functions: { setUpdateEvent, setCurrentEvent },
+  functions: { setUpdateEvent, setCurrentEvent, setSuccess },
 }: UpdateEventProps) => {
   const [updatedEvent, setUpdatedEvent] = useState<UserEvent>({
     title: currentEvent.title,
@@ -221,6 +230,54 @@ const UpdateEvent = ({
     setLoading(true);
 
     try {
+      if (updatedEvent.start_time && updatedEvent.end_time!) {
+        const start = new Date(updatedEvent.start_time);
+        const end = new Date(updatedEvent.end_time);
+        if (end < start) {
+          setError("End time must be after start time!");
+          setLoading(false);
+          return;
+        }
+
+        const attendees = await getAttendees(currentEvent.id);
+        const attendeeMap = Object.fromEntries(
+          attendees.map((a) => [a.id, a.username])
+        );
+
+        const allEvents = (
+          await Promise.all(
+            attendees.map(async ({ id }) => {
+              const userEvents = await getEvents(id);
+              return userEvents
+              .filter((e) => e.id !== currentEvent.id)
+              .map((e) => ({ ...e, ownerId: id }));
+            })
+          )
+        ).flat();  
+
+        const conflicting = allEvents.find((e) => {
+          return (
+            e.start_time &&
+            e.end_time &&
+            new Date(updatedEvent.start_time!) < new Date(e.end_time) &&
+            new Date(updatedEvent.end_time!) > new Date(e.start_time)
+          );
+        });
+
+
+        if (conflicting) {
+          const formattedStart = new Date(conflicting.start_time!).toLocaleString();
+          const formattedEnd = new Date(conflicting.end_time!).toLocaleString();
+          const username = attendeeMap[conflicting.ownerId] || "a member";
+          
+          setError(
+            `Updated event clashes with ${username}'s "${conflicting.title}" (${formattedStart} - ${formattedEnd})`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
       await updateEvent(currentEvent.id, updatedEvent);
       setCurrentEvent({
         ...updatedEvent,
@@ -228,6 +285,7 @@ const UpdateEvent = ({
         creator_id: currentEvent.creator_id,
         group_id: currentEvent.group_id,
       });
+      setSuccess("Event updated successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -241,40 +299,56 @@ const UpdateEvent = ({
   return (
     <div className="box">
       <form className="column" action="" onSubmit={handleUpdateEvent}>
-        <input
+                <div className="input-group">
+          <label htmlFor="title">Title</label>
+          <input
+          id="title"
           type="text"
-          placeholder="Title"
+          placeholder="e.g. Project meeting"
           value={updatedEvent.title}
           onChange={(e) =>
-            setUpdatedEvent({ ...updatedEvent, title: e.target.value })
+            setUpdatedEvent((prev) => ({ ...prev, title: e.target.value }))
           }
           required
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="description">Description</label>
+          <input
+          id="description"
           type="text"
-          placeholder="Description"
+          placeholder="Optional: add more details"
           value={updatedEvent.description}
           onChange={(e) =>
-            setUpdatedEvent({ ...updatedEvent, description: e.target.value })
+            setUpdatedEvent((prev) => ({ ...prev, description: e.target.value }))
           }
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="start_time">Start Time</label>
+          <input
+          id="start_time"
           type="datetime-local"
           value={updatedEvent.start_time || ""}
           onChange={(e) =>
-            setUpdatedEvent({ ...updatedEvent, start_time: e.target.value })
+            setUpdatedEvent((prev) => ({ ...prev, start_time: e.target.value }))
           }
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="end_time">End Time</label>
+          <input
+          id="end_time"
           type="datetime-local"
           value={updatedEvent.end_time || ""}
           onChange={(e) =>
-            setUpdatedEvent({ ...updatedEvent, end_time: e.target.value })
+            setUpdatedEvent((prev) => ({ ...prev, end_time: e.target.value }))
           }
         />
+        </div>    
 
         {error && (
           <div className="error">

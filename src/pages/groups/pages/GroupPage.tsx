@@ -7,6 +7,7 @@ import {
   deleteEvent,
   EventData,
   UserEvent,
+  getEvents
 } from "../../../services/calendarService";
 import { getFriend, getFriendships } from "../../../services/friendService";
 import {
@@ -49,6 +50,7 @@ const GroupPage = () => {
   const [addNewMembers, setAddNewMembers] = useState(false);
   const [createNewEvent, setCreateNewEvent] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const { groupId } = useParams();
   const navigate = useNavigate();
@@ -223,7 +225,7 @@ const GroupPage = () => {
           {createNewEvent && (
             <CreateEvent
               values={{ userId, groupId: group.id, members }}
-              functions={{ setCreateNewEvent, fetchEvents }}
+              functions={{ setCreateNewEvent, fetchEvents, setSuccess }}
             />
           )}
 
@@ -271,6 +273,12 @@ const GroupPage = () => {
       {error && (
         <div className="error">
           <p>{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="success">
+          <p>{success}</p>
         </div>
       )}
 
@@ -400,12 +408,13 @@ type CreateEventProps = {
   functions: {
     setCreateNewEvent: React.Dispatch<React.SetStateAction<boolean>>;
     fetchEvents: () => Promise<void>;
+    setSuccess: React.Dispatch<React.SetStateAction<string>>;
   };
 };
 
 const CreateEvent = ({
   values: { userId, groupId, members },
-  functions: { setCreateNewEvent, fetchEvents },
+  functions: { setCreateNewEvent, fetchEvents, setSuccess },
 }: CreateEventProps) => {
   const [newEvent, setNewEvent] = useState<UserEvent>({
     title: "",
@@ -421,10 +430,59 @@ const CreateEvent = ({
     setError("");
     setLoading(true);
 
+    const memberIds = members
+    .filter((member) => member.id !== userId)
+    .map((member) => member.id);
+
+     if (newEvent.start_time && newEvent.end_time) {
+          const start = new Date(newEvent.start_time);
+          const end = new Date(newEvent.end_time);
+          if (end < start) {
+            setLoading(false);
+            setError("End time must be after start time!");
+            return;
+          }
+    
+          try {
+            const memberIdToUsername = Object.fromEntries(members.map(m => [m.id, m.username]));
+            
+            const allMemberEvents = (
+              await Promise.all(memberIds.map(async (id) => {
+                const events = await getEvents(id);
+                return events.map(e => ({ ...e, ownerId: id }));
+              }))
+            ).flat();
+    
+            const conflictingEvent = allMemberEvents.find((event) => {
+              return (
+                event.start_time &&
+                event.end_time &&
+                new Date(newEvent.start_time!) < new Date(event.end_time) &&
+                new Date(newEvent.end_time!) > new Date(event.start_time)
+              );
+            });
+
+            if (conflictingEvent) {
+              const formattedStart = new Date(conflictingEvent.start_time!).toLocaleString();
+              const formattedEnd = new Date(conflictingEvent.end_time!).toLocaleString();
+              const ownerUsername = memberIdToUsername[conflictingEvent.ownerId] || "a member";
+
+              setError(
+                `Clashes with ${ownerUsername}'s "${conflictingEvent.title}" (${formattedStart} - ${formattedEnd})`
+              );
+              setLoading(false);
+              return;
+            }
+          } catch (error) {
+            if (error instanceof PostgrestError) {
+              setError("Failed to check for clashes: " + error.message);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
     try {
-      const memberIds = members
-        .filter((member) => member.id !== userId)
-        .map((member) => member.id);
       await createEvent(newEvent, userId, memberIds, groupId);
       setNewEvent({
         title: "",
@@ -433,6 +491,7 @@ const CreateEvent = ({
         end_time: null,
       });
       await fetchEvents();
+      setSuccess("Event created successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -446,40 +505,62 @@ const CreateEvent = ({
   return (
     <div className="box">
       <form className="column" action="" onSubmit={handleCreateEvent}>
-        <input
+        <div className="input-group">
+          <label htmlFor="title">Title</label>
+          <input
+          id="title"
           type="text"
-          placeholder="Title"
+          placeholder="e.g. Project meeting"
           value={newEvent.title}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, title: e.target.value }))
           }
           required
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="description">Description</label>
+          <input
+          id="description"
           type="text"
-          placeholder="Description"
+          placeholder="Optional: add more details"
           value={newEvent.description}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, description: e.target.value }))
           }
         />
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="start_time">Start Time</label>
+          <input
+          id="start_time"
           type="datetime-local"
           value={newEvent.start_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
           }
         />
+        <small className="helper-text">
+          Leave empty to let Plan-It! suggest a timing!
+        </small>
+        </div>
 
-        <input
+        <div className="input-group">
+          <label htmlFor="end_time">End Time</label>
+          <input
+          id="end_time"
           type="datetime-local"
           value={newEvent.end_time || ""}
           onChange={(e) =>
             setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
           }
         />
+        <small className="helper-text">
+          Leave empty to let Plan-It! suggest a timing!
+        </small>
+        </div>    
 
         {error && (
           <div className="error">
