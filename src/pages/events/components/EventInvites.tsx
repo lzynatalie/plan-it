@@ -7,7 +7,12 @@ import {
   respondToInvite,
 } from "../../../services/calendarService";
 
-const EventInvites = () => {
+type EventInvitesProps = {
+  refreshFlag: number;
+  setRefreshFlag: React.Dispatch<React.SetStateAction<number>>;
+};
+
+const EventInvites = ({ refreshFlag, setRefreshFlag }: EventInvitesProps) => {
   const { user } = useAuthContext();
   const userId = user!.id;
   const [events, setEvents] = useState<EventData[]>([]);
@@ -21,7 +26,7 @@ const EventInvites = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [refreshFlag]);
 
   const handleViewEvent = async (eventId: string) => {
     navigate(`/events/${eventId}`);
@@ -30,6 +35,7 @@ const EventInvites = () => {
   const handleAcceptInvite = async (eventId: string) => {
     await respondToInvite(userId, eventId, "attending");
     await fetchEvents();
+    setRefreshFlag((prev) => prev + 1);
   };
 
   const handleDeclineInvite = async (eventId: string) => {
