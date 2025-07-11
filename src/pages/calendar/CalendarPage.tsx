@@ -1,6 +1,6 @@
 import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import {
   ConfirmedEvent,
@@ -15,6 +15,8 @@ import ImportNUSMods from "./components/ImportNUSMods";
 const CalendarPage = () => {
   const { user } = useAuthContext();
   const userId = user!.id;
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [events, setEvents] = useState<ConfirmedEvent[]>([]);
   const [newEvent, setNewEvent] = useState<UserEvent>({
@@ -28,6 +30,32 @@ const CalendarPage = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+  const [highlightRange, setHighlightRange] = useState<{
+    start: string;
+    end: string;
+  }>();
+
+  useEffect(() => {
+    const state = location.state as {
+      highlightRange?: { start: string; end: string};
+      autoOpenForm?: boolean;
+    };
+
+    if (state?.highlightRange) {
+      setHighlightRange(state.highlightRange);
+
+      if (state.autoOpenForm) {
+        setNewEvent((prev) => ({
+          ...prev,
+          start_time: state.highlightRange!.start,
+          end_time: state.highlightRange!.end,
+        }));
+        setAddEvent(true);
+      }
+
+      navigate(location.pathname, { replace: true});
+    }
+  }, [location.state, navigate]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -201,7 +229,7 @@ const CalendarPage = () => {
 
       {importTimetable && <ImportNUSMods functions={{ setImportTimetable, fetchEvents}} />}
 
-      {!loading ? <Calendar events={events} /> : <p>Loading...</p>}
+      {!loading ? <Calendar events={events} highlightRange ={highlightRange} /> : <p>Loading...</p>}
     </div>
   );
 };

@@ -46,6 +46,7 @@ const EventPage = () => {
 
   const fetchTimings = async () => {
     const timings = await getTimings(currentEvent.id);
+
     setTimings(timings);
   };
 
@@ -138,9 +139,21 @@ const EventPage = () => {
               <ol>
                 {timings.map(({ start, end }, index) => (
                   <li key={index}>
-                    <p>
-                      {start} - {end}
-                    </p>
+                    <button
+                    onClick={() => {
+                      navigate("/calendar", {
+                        state: {
+                          highlightRange: {
+                            start: new Date(start).toISOString(),
+                            end: new Date(end).toISOString(),
+                          },
+                          autoOpenForm: true,
+                        },
+                      });
+                    }}
+                  >
+                    {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
+                  </button>
                   </li>
                 ))}
               </ol>
