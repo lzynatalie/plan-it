@@ -9,22 +9,23 @@ import UpcomingEvents from "./components/UpcomingEvents";
 
 const EventsPage = () => {
   const [createEvent, setCreateEvent] = useState(false);
+  const [refreshFlag, setRefreshFlag] = useState(0);
 
   return (
     <div className="main">
       <h1>Events</h1>
 
-      {createEvent && <CreateEvent functions={{ setCreateEvent }} />}
+      {createEvent && <CreateEvent functions={{ setCreateEvent, setRefreshFlag }} />}
 
       {!createEvent && (
         <button onClick={(e) => setCreateEvent(true)}>Create Event</button>
       )}
 
-      <EventInvites />
+      <EventInvites refreshFlag ={refreshFlag} setRefreshFlag={setRefreshFlag} />
 
       <div className="row">
-        <PendingEvents />
-        <UpcomingEvents />
+        <PendingEvents refreshFlag={refreshFlag} />
+        <UpcomingEvents refreshFlag={refreshFlag} />
       </div>
     </div>
   );
@@ -33,10 +34,11 @@ const EventsPage = () => {
 type CreateEventProps = {
   functions: {
     setCreateEvent: React.Dispatch<React.SetStateAction<boolean>>;
+    setRefreshFlag: React.Dispatch<React.SetStateAction<number>>;
   };
 };
 
-const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
+const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEventProps) => {
   const { user, getProfile } = useAuthContext();
   const userId = user!.id;
 
@@ -115,6 +117,8 @@ const CreateEvent = ({ functions: { setCreateEvent } }: CreateEventProps) => {
       setInvitees([]);
       setInviteFriends(false);
       setSuccess("Event created successfully!")
+      setCreateEvent(false);
+      setRefreshFlag((prev) => prev + 1);
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);

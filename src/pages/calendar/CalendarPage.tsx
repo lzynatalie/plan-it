@@ -118,6 +118,7 @@ const CalendarPage = () => {
 
       await createEvent(newEvent, userId);
       await fetchEvents();
+      setHighlightRange(undefined);
       // event added, set to clean slate for next event
       setNewEvent({
         title: "",
@@ -125,6 +126,8 @@ const CalendarPage = () => {
         start_time: "",
         end_time: "",
       });
+
+      setAddEvent(false);
 
       setSuccess("Event created successfully!");
     } catch (error) {

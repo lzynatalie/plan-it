@@ -7,7 +7,11 @@ import {
   getEvents,
 } from "../../../services/calendarService";
 
-const UpcomingEvents = () => {
+type UpcomingEventsProps = {
+  refreshFlag?: number;
+};
+
+const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
   const { user } = useAuthContext();
   const userId = user!.id;
   const [events, setEvents] = useState<EventData[]>([]);
@@ -24,7 +28,7 @@ const UpcomingEvents = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [refreshFlag]);
 
   const handleViewEvent = async (eventId: string) => {
     navigate(`/events/${eventId}`);
