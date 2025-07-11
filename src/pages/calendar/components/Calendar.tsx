@@ -10,30 +10,52 @@ import { createResizePlugin } from "@schedule-x/resize";
 import "@schedule-x/theme-default/dist/calendar.css";
 import { updateEvent } from "../../../services/calendarService";
 import { useNavigate } from "react-router-dom";
+import { useRef, useEffect } from "react";
 
 type CalendarProps = {
   events: { id: string; title: string; start_time: string; end_time: string }[];
+  highlightRange?: { start: string; end: string };
 };
 
-const Calendar = ({ events }: CalendarProps) => {
+const Calendar = ({ events, highlightRange }: CalendarProps) => {
   const pad = (n: number) => n.toString().padStart(2, "0");
 
   const toScheduleXFormat = (isoString: string) => {
+    if (!isoString) return "";
+
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return "";
+    
+    const pad = (n: number) => n.toString().padStart(2, "0");
     const yyyy = date.getFullYear();
-    const mm = pad(date.getMonth() + 1); // getMonth is 0-indexed
+    const mm = pad(date.getMonth() + 1);
     const dd = pad(date.getDate());
     const hh = pad(date.getHours());
     const min = pad(date.getMinutes());
     return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
   };
 
-  const formattedEvents = events.map(({ id, title, start_time, end_time }) => ({
-    id,
-    title,
-    start: toScheduleXFormat(start_time),
-    end: toScheduleXFormat(end_time),
-  }));
+  const formattedEvents = [
+    ...events
+    .filter(({ start_time, end_time }) => start_time && end_time)
+    .map(({ id, title, start_time, end_time }) => ({
+      id,
+      title,
+      start: toScheduleXFormat(start_time),
+      end: toScheduleXFormat(end_time),
+    })),
+    ...(highlightRange
+      ? [
+        {
+          id: "highlight",
+          title: "Suggested Time",
+          start: toScheduleXFormat(highlightRange.start),
+          end: toScheduleXFormat(highlightRange.end),
+          background: true,
+        },
+      ]
+    : []),
+  ];
 
   const navigate = useNavigate();
 
@@ -56,13 +78,41 @@ const Calendar = ({ events }: CalendarProps) => {
       //     });
       //   },
       onEventClick(calendarEvent: CalendarEventExternal, e: UIEvent) {
+        if (calendarEvent.id === "highlight") {
+        // open the event form pre-filled
+          navigate("/calendar", {
+            state: {
+              highlightRange: {
+                start: calendarEvent.start,
+                end: calendarEvent.end,
+              },
+              autoOpenForm: true,
+            },
+          });
+          return; 
+        }
         navigate(`/events/${calendarEvent.id}`);
       },
     },
   });
 
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!highlightRange?.start) return;
+
+    const timeout = setTimeout(() => {
+      const highlightedEl = document.querySelector('[data-event-id="highlight"]');
+      if (highlightedEl instanceof HTMLElement) {
+        highlightedEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [highlightRange]);
+
   return (
-    <div>
+    <div ref={calendarRef}>
       <ScheduleXCalendar calendarApp={calendar} />
     </div>
   );

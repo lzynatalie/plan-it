@@ -386,8 +386,8 @@ export async function getTimings(eventId: string) {
   const oneWeekLater = now + 7 * 24 * 60 * 60 * 1000;
 
   return getMissingIntervals(intervals, now, oneWeekLater).map((interval) => ({
-    start: new Date(interval[0]).toLocaleString(),
-    end: new Date(interval[1]).toLocaleString(),
+    start: new Date(interval[0]).toISOString(),
+    end: new Date(interval[1]).toISOString(),
   }));
 }
 
