@@ -15,9 +15,10 @@ import { useRef, useEffect } from "react";
 type CalendarProps = {
   events: { id: string; title: string; start_time: string; end_time: string }[];
   highlightRange?: { start: string; end: string };
+  pendingMeta?: { title: string; description?: string; eventId: string;} | null;
 };
 
-const Calendar = ({ events, highlightRange }: CalendarProps) => {
+const Calendar = ({ events, highlightRange, pendingMeta }: CalendarProps) => {
   const pad = (n: number) => n.toString().padStart(2, "0");
 
   const toScheduleXFormat = (isoString: string) => {
@@ -87,10 +88,16 @@ const Calendar = ({ events, highlightRange }: CalendarProps) => {
                 end: calendarEvent.end,
               },
               autoOpenForm: true,
+              pendingEventData: {
+                title: pendingMeta?.title || "",
+                description: pendingMeta?.description || "",
+                eventId: pendingMeta?.eventId || "",
+              },
             },
           });
           return; 
         }
+        
         navigate(`/events/${calendarEvent.id}`);
       },
     },

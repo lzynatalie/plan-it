@@ -34,22 +34,42 @@ const CalendarPage = () => {
     start: string;
     end: string;
   }>();
+  const [pendingMeta, setPendingMeta] = useState<{
+    title: string; 
+    description?: string; 
+    eventId: string 
+  } | null>(null);
 
   useEffect(() => {
     const state = location.state as {
       highlightRange?: { start: string; end: string};
       autoOpenForm?: boolean;
+      pendingEventData?: {
+        title: string;
+        description?: string;
+        eventId: string;
+      };
+      pendingEventMeta?: {
+        title: string;
+        description?: string;
+        eventId: string;
+      };
     };
 
     if (state?.highlightRange) {
       setHighlightRange(state.highlightRange);
 
-      if (state.autoOpenForm) {
-        setNewEvent((prev) => ({
-          ...prev,
-          start_time: state.highlightRange!.start,
-          end_time: state.highlightRange!.end,
-        }));
+      if (state.pendingEventMeta) {
+        setPendingMeta(state.pendingEventMeta);
+      }
+
+      if (state.autoOpenForm && state.pendingEventData) {
+        setNewEvent({
+          title: state.pendingEventData?.title || "",
+          description: state.pendingEventData?.description || "",
+          start_time: state.highlightRange.start,
+          end_time: state.highlightRange.end,
+        });
         setAddEvent(true);
       }
 
@@ -117,6 +137,10 @@ const CalendarPage = () => {
       }
 
       await createEvent(newEvent, userId);
+
+      if (pendingMeta?.eventId) {
+        await deleteEvent(pendingMeta.eventId);
+      }
       await fetchEvents();
       setHighlightRange(undefined);
       // event added, set to clean slate for next event
@@ -232,7 +256,7 @@ const CalendarPage = () => {
 
       {importTimetable && <ImportNUSMods functions={{ setImportTimetable, fetchEvents}} />}
 
-      {!loading ? <Calendar events={events} highlightRange ={highlightRange} /> : <p>Loading...</p>}
+      {!loading ? <Calendar events={events} highlightRange ={highlightRange} pendingMeta={pendingMeta} /> : <p>Loading...</p>}
     </div>
   );
 };
