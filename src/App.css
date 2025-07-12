@@ -49,6 +49,12 @@
   /* border: 1px solid blue; */
 }
 
+.finalise-message {
+  margin-top: 20px;
+  font-style: italic;
+  color: #ccc;
+}
+
 input {
   width: 100%;
   height: 40px;
