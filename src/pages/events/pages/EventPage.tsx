@@ -147,7 +147,11 @@ const EventPage = () => {
                             start: new Date(start).toISOString(),
                             end: new Date(end).toISOString(),
                           },
-                          autoOpenForm: true,
+                          pendingEventMeta: {
+                            title: currentEvent.title,
+                            description: currentEvent.description,
+                            eventId: currentEvent.id,
+                          },
                         },
                       });
                     }}
