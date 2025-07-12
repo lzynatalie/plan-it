@@ -132,7 +132,7 @@ const EventPage = () => {
           </div>
         )}
 
-        {!currentEvent.start_time && (
+        {!currentEvent.start_time && userId === currentEvent.creator_id && (
           <div>
             <h2>Available Timings</h2>
             {timings.length > 0 ? (
@@ -140,24 +140,24 @@ const EventPage = () => {
                 {timings.map(({ start, end }, index) => (
                   <li key={index}>
                     <button
-                    onClick={() => {
-                      navigate("/calendar", {
-                        state: {
-                          highlightRange: {
-                            start: new Date(start).toISOString(),
-                            end: new Date(end).toISOString(),
+                      onClick={() => {
+                         navigate("/calendar", {
+                          state: {
+                            highlightRange: {
+                              start: new Date(start).toISOString(),
+                              end: new Date(end).toISOString(),
+                            },
+                            pendingEventMeta: {
+                              title: currentEvent.title,
+                              description: currentEvent.description,
+                              eventId: currentEvent.id,
+                            },
                           },
-                          pendingEventMeta: {
-                            title: currentEvent.title,
-                            description: currentEvent.description,
-                            eventId: currentEvent.id,
-                          },
-                        },
-                      });
-                    }}
-                  >
-                    {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
-                  </button>
+                        });
+                      }}
+                    >
+                      {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
+                    </button>
                   </li>
                 ))}
               </ol>
@@ -165,6 +165,12 @@ const EventPage = () => {
               "No available timings"
             )}
           </div>
+        )}
+
+        {!currentEvent.start_time && userId !== currentEvent.creator_id && (
+          <p className="finalise-message">
+            Waiting for the event creator to finalise the timing.
+            </p>
         )}
 
         {error && (
