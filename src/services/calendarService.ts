@@ -461,3 +461,42 @@ export async function deleteNUSMODsEvents(userId: string) {
     throw new Error("Could not delete previous timetable.");
   }
 }
+
+/**
+ * Finalises a pending event by setting its start and end time.
+ * Only the creator of the event is allowed to do this.
+ * 
+ * @param userId - ID of the creator of the event
+ * @param eventId - ID of the event to finalise
+ * @param newDetails - New details to update the event with
+ */
+export async function finaliseEvent(
+  userId: string,
+  eventId: string,
+  newDetails: Partial<Pick<UserEvent, "start_time" | "end_time" | "title" | "description">>
+) {
+  const { data: event, error } = await supabase
+  .from("event")
+  .select("creator_id")
+  .eq("id", eventId)
+  .single();
+
+  if (error) {
+    console.error("Failed to verify event:", error.message);
+    throw new Error("Failed to find event.");
+  }
+
+  if (event.creator_id !== userId) {
+    throw new Error("Only the event creator can finalise the event.");
+  }
+
+  const { error: updateError } = await supabase
+  .from("event")
+  .update(newDetails)
+  .eq("id", eventId);
+
+  if (updateError) {
+    console.error("Failed to finalise event:", updateError.message);
+    throw new Error("Failed to finalise event.");
+  }
+}

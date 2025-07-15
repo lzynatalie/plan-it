@@ -8,6 +8,7 @@ import {
   createEvent,
   deleteEvent,
   getEvents,
+  finaliseEvent
 } from "../../services/calendarService";
 import Calendar from "./components/Calendar";
 import ImportNUSMods from "./components/ImportNUSMods";
@@ -136,11 +137,17 @@ const CalendarPage = () => {
         return;
       }
 
-      await createEvent(newEvent, userId);
-
       if (pendingMeta?.eventId) {
-        await deleteEvent(pendingMeta.eventId);
+        await finaliseEvent(userId, pendingMeta.eventId, {
+          title: newEvent.title,
+          description: newEvent.description,
+          start_time: newEvent.start_time,
+          end_time: newEvent.end_time,
+        });
+      } else {
+        await createEvent(newEvent, userId);
       }
+
       await fetchEvents();
       setHighlightRange(undefined);
       // event added, set to clean slate for next event
