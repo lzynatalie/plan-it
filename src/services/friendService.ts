@@ -51,7 +51,7 @@ export async function getPendingRequests(
   const { data, error } = await supabase
     .from("friendship")
     .select()
-    .eq("recipient_id", userId)
+    .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
     .eq("status", "pending");
 
   if (error) {

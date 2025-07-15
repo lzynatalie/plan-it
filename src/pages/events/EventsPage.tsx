@@ -329,33 +329,34 @@ const InviteFriends = ({
 
   return (
     <div>
-      {friends.length > 0 && (
-        <ul>
-          <h2>Friends</h2>
+      <h2>Friends</h2>
+      {friends.length > 0 ? (
+        <>
+          <ul>
+            {friends.map((friend) => (
+              <li key={friend.friendshipId}>
+                <div className="box row">
+                  <div className="column">
+                    <p>{friend.username}</p>
+                  </div>
 
-          {friends.map((friend) => (
-            <li key={friend.friendshipId}>
-              <div className="box row">
-                <div className="column">
-                  <p>{friend.username}</p>
-                </div>
-
-                <button
+                  <button
                   onClick={(e) => {
                     setInvitees((prev) => [...prev, friend]);
-                    setFriends((prev) =>
-                      prev.filter((f) => f.friendshipId !== friend.friendshipId)
-                    );
+                    setFriends((prev) => 
+                    prev.filter((f) => f.friendshipId !== friend.friendshipId));
                   }}
-                >
-                  Invite
-                </button>
-              </div>
-            </li>
-          ))}
-
+                  >
+                    Invite
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
           <button onClick={(e) => setInviteFriends(false)}>Close</button>
-        </ul>
+        </>
+      ) : (
+        <p>You have no friends yet.</p>
       )}
     </div>
   );

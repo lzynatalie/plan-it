@@ -17,6 +17,8 @@ const PendingRequests = () => {
       friendshipId: string;
       friendId: string;
       username: string;
+      sender_id: string;
+      recipient_id: string;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -33,9 +35,11 @@ const PendingRequests = () => {
             const friendId = getFriend(userId, friendship);
             const profile = await getProfile(friendId);
             return {
-              friendshipId: friendship.id,
-              friendId: getFriend(userId, friendship),
+              friendshipId: friendship.id, 
+              friendId,
               username: profile.username,
+              sender_id: friendship.sender_id,
+              recipient_id: friendship.recipient_id,
             };
           })
         );
@@ -85,35 +89,56 @@ const PendingRequests = () => {
   return (
     <div>
       <h2>Pending Requests</h2>
-      {requests.length === 0 ? (
-        <p>You have no pending friend requests.</p>
-      ) : (
-        <ul>
-          {requests.map((request) => (
-            <li key={request.friendshipId}>
-              <div className="box row">
-                From: {request.username}
-                <button
-                  onClick={() =>
-                    handleResponse(request.friendshipId, "accepted")
-                  }
+
+      <section>
+        <h3>Incoming Friend Requests</h3>
+        {requests.filter(r => r.recipient_id === userId).length === 0? (
+          <p>No incoming friend requests.</p>
+        ) : (
+          <ul>
+            {requests
+            .filter(r => r.recipient_id === userId)
+            .map((request) => (
+              <li key={request.friendshipId}>
+                <div className="box row">
+                  <span>Friend request from: {request.username}</span>
+                  <button
+                  onClick={() => handleResponse(request.friendshipId, "accepted")}
                   disabled={processingIDs.includes(request.friendshipId)}
-                >
-                  Accept
-                </button>
-                <button
-                  onClick={() =>
-                    handleResponse(request.friendshipId, "declined")
-                  }
+                  >
+                    Accept
+                  </button>
+                  <button
+                  onClick={() => handleResponse(request.friendshipId, "declined")}
                   disabled={processingIDs.includes(request.friendshipId)}
-                >
-                  Decline
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h3>Sent Friend Requests</h3>
+        {requests.filter(r =>r.sender_id === userId).length === 0 ? (
+          <p>No sent friend requests.</p>
+        ) : (
+          <ul>
+            {requests
+            .filter(r => r.sender_id === userId)
+            .map((request) => (
+              <li key={request.friendshipId}>
+                <div className="box row">
+                  <span>Request sent to: {request.username}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };
