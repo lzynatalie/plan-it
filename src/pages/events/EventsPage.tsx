@@ -1,24 +1,25 @@
 import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
 import { useAuthContext, UserData } from "../../context/AuthContext";
-import { createEvent, getEvents, UserEvent } from "../../services/calendarService";
+import { createEvent, getEvents, getRecurringTimings, UserEvent } from "../../services/calendarService";
 import { getFriend, getFriendships } from "../../services/friendService";
 import EventInvites from "./components/EventInvites";
 import PendingEvents from "./components/PendingEvents";
 import UpcomingEvents from "./components/UpcomingEvents";
+import { v4 as uuidv4 } from "uuid";
 
 const EventsPage = () => {
-  const [createEvent, setCreateEvent] = useState(false);
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [refreshFlag, setRefreshFlag] = useState(0);
 
   return (
     <div className="main">
       <h1>Events</h1>
 
-      {createEvent && <CreateEvent functions={{ setCreateEvent, setRefreshFlag }} />}
+      {isCreatingEvent && <CreateEvent functions={{ setCreateEvent: setIsCreatingEvent, setRefreshFlag }} />}
 
-      {!createEvent && (
-        <button onClick={(e) => setCreateEvent(true)}>Create Event</button>
+      {!isCreatingEvent && (
+        <button onClick={(e) => setIsCreatingEvent(true)}>Create Event</button>
       )}
 
       <EventInvites refreshFlag ={refreshFlag} setRefreshFlag={setRefreshFlag} />
@@ -106,7 +107,43 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
 
     try {
       const inviteeIds = invitees.map((invitee) => invitee.friendId);
+
+      if (newEvent.recurrence && newEvent.repeat_until) {
+        const userMap: Record<string, string> = {
+          [userId]: "you",
+          ...invitees.reduce((acc, cur) => {
+            acc[cur.friendId] = cur.username;
+            return acc;
+          }, {} as Record<string, string>),
+        };
+
+        const result = await getRecurringTimings({
+          userIds: [userId, ...inviteeIds],
+          baseStart: newEvent.start_time!,
+          durationMinutes:
+          (new Date(newEvent.end_time!).getTime() - 
+          new Date(newEvent.start_time!).getTime()) /
+          (60 * 1000),
+          repeatUntil: newEvent.repeat_until!,
+          recurrence: newEvent.recurrence!,
+          userMap,
+        });
+
+        if (result.conflict) {
+          setError(result.message || "One or more recurrences has a timing conflict.");
+          setLoading(false);
+          return;
+        }
+
+        const eventToCreate = {
+          ...newEvent,
+          recurrence_group_id: uuidv4(),
+        }
+
+        await createEvent(eventToCreate, userId, inviteeIds);
+    } else {
       await createEvent(newEvent, userId, inviteeIds);
+    }
 
       setNewEvent({
         title: "",
@@ -186,7 +223,41 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
         <small className="helper-text">
           Leave empty to let Plan-It! suggest a timing!
         </small>
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="recurrence">Repeat</label>
+          <select
+          id="recurrence"
+          value={newEvent.recurrence || "none"}
+          onChange={(e) => 
+            setNewEvent((prev) => ({
+              ...prev,
+              recurrence: e.target.value as "weekly" | "monthly" | "annually" | undefined,
+            }))
+          }
+          >
+            <option value="">Choose event recurrence (optional)</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="annually">Annually</option>
+          </select>
         </div>    
+
+        {newEvent.recurrence && (
+          <div className="input-group">
+            <label htmlFor="repeat_until">Repeat Until</label>
+            <input
+            id="repeat_until"
+            type="date"
+            required
+            value={newEvent.repeat_until || ""}
+            onChange={(e) =>
+              setNewEvent((prev) => ({ ...prev, repeat_until: e.target.value }))
+            }
+            />
+          </div>
+        )}
 
         <ul>
           <h2>Invite List</h2>

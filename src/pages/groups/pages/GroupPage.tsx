@@ -1,6 +1,6 @@
 import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuthContext, UserData } from "../../../context/AuthContext";
 import {
   createEvent,
@@ -19,6 +19,7 @@ import {
   Group,
   removeMember,
 } from "../../../services/groupService";
+import { isForInStatement } from "typescript";
 
 const GroupPage = () => {
   const { user, getProfile } = useAuthContext();
@@ -421,9 +422,26 @@ const CreateEvent = ({
     description: "",
     start_time: null,
     end_time: null,
+    recurrence: undefined,
+    repeat_until: undefined,
   });
+  const location = useLocation();
+  const isFinalisingPendingEvent = !!location.state?.pendingEventMeta;
+  const meta = location.state?.pendingEventMeta;
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isFinalisingPendingEvent && meta) {
+      setNewEvent((prev) => ({
+        ...prev,
+        title: meta.title,
+        description: meta.description,
+        recurrence: meta.recurrence || undefined,
+        repeat_until: meta.repeat_until || undefined,
+      }));
+    }
+  }, []);
 
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -561,6 +579,47 @@ const CreateEvent = ({
           Leave empty to let Plan-It! suggest a timing!
         </small>
         </div>    
+
+        <div className="input-group">
+          <label htmlFor="recurrence">Repeat</label>
+          <select
+            id="recurrence"
+            value={newEvent.recurrence || ""}
+            onChange={(e) =>
+              setNewEvent((prev) => ({
+                ...prev,
+                recurrence: e.target.value as "weekly" | "monthly" | "annually" | undefined,
+              }))
+            }
+            disabled={isFinalisingPendingEvent}
+          >
+            <option value="">
+              {isFinalisingPendingEvent && newEvent.recurrence
+                ? `Recurs ${newEvent.recurrence}`
+                : "Choose event recurrence (optional)"}
+            </option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="annually">Annually</option>
+          </select>
+        </div>
+
+        {newEvent.recurrence && (
+          <div className="input-group">
+            <label htmlFor="repeat_until">Repeat Until</label>
+            <input
+              id="repeat_until"
+              type="date"
+              required
+              value={newEvent.repeat_until || ""}
+              onChange={(e) =>
+                setNewEvent((prev) => ({ ...prev, repeat_until: e.target.value }))
+              }
+              disabled={isFinalisingPendingEvent}
+            />
+          </div>
+        )}
+
 
         {error && (
           <div className="error">

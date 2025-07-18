@@ -39,7 +39,10 @@ const CalendarPage = () => {
     title: string; 
     description?: string; 
     eventId: string 
+    recurrence?: "weekly" | "monthly" | "annually";
+    repeat_until?: string;
   } | null>(null);
+  const isFinalisingPendingEvent = !!pendingMeta?.eventId;
 
   useEffect(() => {
     const state = location.state as {
@@ -54,6 +57,8 @@ const CalendarPage = () => {
         title: string;
         description?: string;
         eventId: string;
+        recurrence?: "weekly" | "monthly" | "annually";
+        repeat_until?: string;
       };
     };
 
@@ -70,13 +75,29 @@ const CalendarPage = () => {
           description: state.pendingEventData?.description || "",
           start_time: state.highlightRange.start,
           end_time: state.highlightRange.end,
+          recurrence: state.pendingEventMeta?.recurrence || undefined,
+          repeat_until: state.pendingEventMeta?.repeat_until || undefined,
         });
         setAddEvent(true);
       }
 
-      navigate(location.pathname, { replace: true});
+      navigate(location.pathname, { replace: true });
     }
   }, [location.state, navigate]);
+
+  useEffect(() => {
+    if (addEvent && pendingMeta && highlightRange) {
+      setNewEvent((prev) => ({
+        ...prev,
+        title: pendingMeta.title || prev.title,
+        description: pendingMeta.description || prev.description,
+        recurrence: pendingMeta.recurrence || prev.recurrence,
+        repeat_until: pendingMeta.repeat_until || prev.repeat_until,
+        start_time: highlightRange.start,
+        end_time: highlightRange.end,
+      }));
+    }
+  }, [addEvent, pendingMeta, highlightRange]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -170,6 +191,14 @@ const CalendarPage = () => {
     }
   };
 
+  const formatDateForInput = (dateStr?: string): string => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0]; // "YYYY-MM-DD"
+  };
+
+
   return (
     <div className="main">
       <div className="row">
@@ -239,7 +268,53 @@ const CalendarPage = () => {
                   setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
                 }
               />
-              </div>    
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="recurrence">Repeat</label>
+                <select
+                id="recurrence"
+                value={newEvent.recurrence || ""}
+                disabled={isFinalisingPendingEvent}
+                onChange={(e) => 
+                  setNewEvent((prev) => ({
+                    ...prev,
+                    recurrence: e.target.value as "weekly" | "monthly" | "annually" | undefined,
+                  }))
+                }
+                >
+                  <option value="">
+                    {isFinalisingPendingEvent && !(newEvent.recurrence || pendingMeta?.recurrence)
+                      ? "This is a one-off event"
+                      : "Choose event recurrence (optional)"}
+                  </option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="annually">Annually</option>
+                </select>
+              </div>   
+
+              {newEvent.recurrence && (
+                <div className="input-group">
+                  <label htmlFor="repeat_until">Repeat Until</label>
+                  <input
+                  id="repeat_until"
+                  type="date"
+                  disabled={isFinalisingPendingEvent}
+                  required
+                  value={formatDateForInput(newEvent.repeat_until || pendingMeta?.repeat_until)}
+                  onChange={(e) =>
+                    setNewEvent((prev) => ({ ...prev, repeat_until: e.target.value }))
+                  }
+                  />
+                </div>
+              )}  
+
+              {isFinalisingPendingEvent && (
+                <p className="helper-text">
+                  Recurrence is already set for this event and cannot be changed.
+                </p>
+              )}                
 
               <div className="error">{error && <p>{error}</p>}</div>
 

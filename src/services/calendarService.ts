@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { supabase } from "../config/supabaseClient";
 import { UserData } from "../context/AuthContext";
 
@@ -5,6 +6,9 @@ export type EventData = {
   id: string;
   creator_id: string;
   group_id?: string | null;
+  recurrence?: "weekly" | "monthly" | "annually";
+  recurrence_group_id?: string | null;
+  repeat_until?: string;
   title?: string;
   description?: string;
   start_time?: string | null;
@@ -21,7 +25,11 @@ export type ConfirmedEvent = {
   end_time: string;
 };
 
-export type UserEvent = Omit<EventData, "id" | "creator_id">;
+export type UserEvent = Omit<EventData, "id" | "creator_id"> & {
+  recurrence?: "weekly" | "monthly" | "annually";
+  repeat_until?: string;
+  recurrence_group_id?: string;
+};
 
 /**
  * Fetches events that the user is attending
@@ -124,6 +132,99 @@ export async function createEvent(
   attendeeIds?: string[],
   groupId?: string
 ) {
+  const isRecurring = !!event.recurrence && !!event.repeat_until && !!event.recurrence_group_id;
+  const isPending = !event.start_time || !event.end_time;
+
+  if (isRecurring && isPending) {
+    const { data, error } = await supabase
+    .from("event")
+    .insert([{
+      ...event,
+      creator_id: creatorId,
+      group_id: groupId || null,
+      start_time: null,
+      end_time: null,
+    }])
+    .select("id");
+
+    if (error) {
+      console.error("Failed to add base recurring event:", error.message);
+      throw error;
+    }
+
+    const baseId = data[0].id;
+
+    const attendanceRecords = [
+      {
+        event_id: baseId,
+        user_id: creatorId,
+        status: "attending",
+      },
+      ...(attendeeIds || []).map((uid) => ({
+        event_id: baseId,
+        user_id: uid,
+        status: "invited",
+      })),
+    ];
+
+    const { error: userEventError } = await supabase
+    .from("user_event")
+    .insert(attendanceRecords);
+
+    if (userEventError) {
+      console.error("Failed to create user_event entries:", userEventError.message);
+      throw userEventError;
+    }
+
+    return;
+  }
+
+  if (isRecurring && !isPending) {
+    const recurringEvents = generateRecurringEvents(event, event.repeat_until!);
+
+    const { data, error } = await supabase
+    .from("event")
+    .insert(recurringEvents.map((e) => ({
+      ...e,
+      creator_id: creatorId,
+      group_id: groupId || null,
+    })))
+    .select("id");
+
+    if (error) {
+      console.error("Failed to add recurring events:", error.message);
+      throw error;
+    }
+    
+    const eventIds = data.map((row) => row.id);
+
+    const attendanceRecords = [
+      ...eventIds.map((id) => ({
+        event_id: id,
+        user_id: creatorId,
+        status: "attending",
+      })),
+      ...(attendeeIds || []).flatMap((uid) => 
+        eventIds.map((id) => ({
+          event_id: id,
+          user_id: uid,
+          status: "invited",
+        }))
+      ),
+    ];
+
+    const { error: userEventError } = await supabase
+    .from("user_event")
+    .insert(attendanceRecords);
+
+    if (userEventError) {
+      console.error("Failed to create user_event entries:", userEventError.message);
+      throw userEventError;
+    }
+
+    return;
+  }
+
   const eventId = await addEvent(event, groupId);
   await addAttendee(eventId, creatorId);
 
@@ -187,7 +288,12 @@ export async function addEvent(
     .single();
 
   if (error) {
-    console.error("Failed to add event:", error.message);
+  console.error("Failed to add event:", error.message, {
+    details: error.details,
+    hint: error.hint,
+    code: error.code, 
+    event,
+  });
     throw error;
   }
 
@@ -500,3 +606,216 @@ export async function finaliseEvent(
     throw new Error("Failed to finalise event.");
   }
 }
+
+/**
+ * Creates recurring events from a base event, based on user's specified frequency.
+ * 
+ * @param base - The base event set to recur.
+ * @param until - The end date for the recurrence range, set by the user.
+ * @returns An array of UserEvent instances, one for each recurrence.
+ */
+export function generateRecurringEvents(base: UserEvent, until: string): UserEvent[] {
+  const events: UserEvent[] = [];
+  let start = new Date(Date.parse(base.start_time!));
+  let end = new Date(Date.parse(base.end_time!));
+  const limit = new Date(until);
+
+ console.log("📅 Starting recurring event generation");
+  console.log("Base Start:", base.start_time, "Parsed:", start.toString());
+  console.log("Base End:", base.end_time, "Parsed:", end.toString());
+  console.log("Repeat Until:", until, "Parsed:", limit.toString());
+
+  while (start <= limit) {
+    console.log("🟢 Creating event for:", start.toISOString(), "→", end.toISOString());
+console.log(`🧪 Pushing event: ${start.toString()} → ${new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString()}`);
+
+    events.push({
+      ...base,
+      start_time: new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString(),
+      end_time: new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString(),
+    });
+
+    const nextStart = new Date(start);
+    const nextEnd = new Date(end);
+
+    if (base.recurrence === "weekly") {
+      nextStart.setDate(nextStart.getDate() + 7);
+      nextEnd.setDate(nextEnd.getDate() + 7);
+      start.setDate(start.getDate() + 7);
+end.setDate(end.getDate() + 7);
+
+    } else if (base.recurrence === "monthly") {
+      nextStart.setMonth(nextStart.getMonth() + 1);
+      nextEnd.setMonth(nextEnd.getMonth() + 1);
+    } else if (base.recurrence === "annually") {
+      nextStart.setFullYear(nextStart.getFullYear() + 1);
+      nextEnd.setFullYear(nextEnd.getFullYear() + 1);
+    } else {
+      break;
+    }
+
+    start = nextStart;
+    end = nextEnd;
+  }
+
+  return events;
+}
+
+/**
+ * Checks available timings for a recurring event based on recurrence type and range.
+ * 
+ * @param userIds - list of user IDs on attendee list to check availability for 
+ * @param baseStart - starting datetime (e.g. 2025-07-15T10:00)
+ * @param durationMinutes - duration of each event instance
+ * @param repeatUntil - ISO date (e.g. 2025-07-15)
+ * @param recurrence - recurrence type ("weekly", "monthly", or "annually")
+ * @returns true if all slots are free for everyone on the attendee list, false otherwise
+ */
+export async function getRecurringTimings({
+  userIds,
+  baseStart,
+  durationMinutes,
+  repeatUntil,
+  recurrence,
+  userMap,
+}: {
+  userIds : string[];
+  baseStart: string;
+  durationMinutes: number;
+  repeatUntil: string;
+  recurrence: "weekly" | "monthly" | "annually";
+  userMap: Record<string, string>;
+}) {
+  if (!baseStart || !durationMinutes || !repeatUntil) {
+    return { conflict: false};
+  }
+
+  const start = new Date(baseStart);
+  const until = new Date(repeatUntil);
+
+  const allInstances: [Date, Date][] = [];
+
+  let current = new Date(start);
+  while (current <= until) {
+    const instanceStart = new Date(current);
+    const instanceEnd = new Date(current.getTime() + durationMinutes * 60 * 1000)
+    allInstances.push([instanceStart, instanceEnd]);
+
+    if (recurrence === "weekly") {
+      current.setDate(current.getDate() + 7);
+    } else if (recurrence === "monthly") {
+      current.setMonth(current.getMonth() + 1);
+    } else if (recurrence === "annually") {
+      current.setFullYear(current.getFullYear() + 1);
+    }
+  }
+
+  for (const userId of userIds) {
+    const events = await getEvents(userId);
+
+    for (const [recStart, recEnd] of allInstances) {
+      const conflict = events.find((e) => {
+        if (!e.start_time || !e.end_time) return false;
+        const evStart = new Date(e.start_time);
+        const evEnd = new Date(e.end_time);
+        return recStart < evEnd && recEnd > evStart;
+      });
+
+      if (conflict) {
+        const start = new Date(conflict.start_time!).toLocaleString();
+        const end = new Date(conflict.end_time!).toLocaleString();
+        const isSelf = userId === conflict.creator_id;
+
+        const title = conflict.title || "Untitled Event";
+
+        return {
+          conflict: true,
+          message: `Conflict with ${title} (${start} - ${end}) for ${userMap[userId] || "an attendee"}`,
+        };
+      }
+    }
+  }
+
+  return { conflict: false };
+}
+
+/**
+ * Deletes all events in a recurrence group i.e. deletes all events instances of a recurring event.
+ * 
+ * @param groupId - Recurrence group id of event group to be deleted.
+ */
+export async function deleteRecurringGroup(groupId: string) {
+  const { error } = await supabase
+  .from("event")
+  .delete()
+  .eq("recurrence_group_id", groupId);
+
+  if (error) {
+    console.error("Failed to delete recurring event group:", error.message);
+    throw error;
+  }
+}
+
+/**
+ * Updates all events in a recurrence group i.e. updates all event instances of a recurring event.
+ * 
+ * @param groupId - Recurrence group id of event group to be updated.
+ * @param updatedFields - Updated information of the event.
+ */
+export async function updateRecurringGroup(
+  groupId: string,
+  updatedFields: Partial<UserEvent>
+) {
+  const { error } = await supabase
+  .from("event")
+  .update(updatedFields)
+  .eq("recurrence_group_id", groupId);
+
+  if (error) {
+    console.error("Failed to update recurring event group:", error.message);
+    throw error;
+  }
+}
+
+/**
+ * Finalises a pending recurring event by generating all future instances
+ * based on the chosen start and end time.
+ * Deletes the base placeholder event and inserts the full recurring series of finalised events.
+ * 
+ * @param baseEvent - The original placeholder event with recurrence information but no set timing.
+ * @param finalisedStart - The confirmed start time to apply to all instances.
+ * @param finalisedEnd - The confirmed end time to apply to all instances.
+ * @returns An object with optional `error` key if something goes wrong.
+ */
+export const finalisePendingRecurringEvent = async (
+  currentEvent: EventData, 
+  finalisedStart: string,
+  finalisedEnd: string
+) => {
+  if (!currentEvent.recurrence || !currentEvent.repeat_until) {
+    return { error: "Missing recurrence information." };
+  }
+
+  const base: UserEvent = {
+    title: currentEvent.title,
+    description: currentEvent.description ?? undefined,
+    start_time: finalisedStart,
+    end_time: finalisedEnd,
+    recurrence: currentEvent.recurrence,
+    recurrence_group_id: currentEvent.recurrence_group_id ?? undefined,
+    repeat_until: currentEvent.repeat_until,
+    group_id: currentEvent.group_id ?? undefined,
+  };
+
+  try {
+    const events = generateRecurringEvents(base, currentEvent.repeat_until);
+
+    await deleteEvent(currentEvent.id);
+    await addEvents(events);
+
+    return {};
+  } catch (err) {
+    console.error("Failed to finalise recurring event:", err);
+    return { error: "Something went wrong while finalising recurring event." };
+  }
+};
