@@ -12,8 +12,13 @@ import {
   removeUser,
   respondToInvite,
   updateEvent,
-  getEvents
+  getEvents,
+  deleteRecurringGroup,
+  updateRecurringGroup,
+  generateRecurringEvents,
+  finalisePendingRecurringEvent
 } from "../../../services/calendarService";
+import { supabase } from "@supabase/auth-ui-shared";
 
 const EventPage = () => {
   const { user } = useAuthContext();
@@ -78,7 +83,19 @@ const EventPage = () => {
 
   const handleDeleteEvent = async (eventId: string) => {
     try {
-      await deleteEvent(eventId);
+      if (currentEvent.recurrence_group_id) {
+        const confirmAll = window.confirm(
+          "This is a recurring event. Delete all occurrences?"
+        );
+        if (confirmAll) {
+          await deleteRecurringGroup(currentEvent.recurrence_group_id);
+        } else {
+          await deleteEvent(eventId);
+        }
+      } else {
+        await deleteEvent(eventId);
+      }
+
       navigate("/events");
     } catch (error) {
       if (error instanceof PostgrestError) {
@@ -98,12 +115,21 @@ const EventPage = () => {
     }
   };
 
+  const isPending = !currentEvent.start_time || currentEvent.start_time === "";
+
   return (
     <div className="main">
       <h1>{currentEvent.title}</h1>
 
       <div className="box">
         <h2>Event Details</h2>
+        
+        {currentEvent.recurrence && (
+          <p className="helper-text">This is a recurring event: {currentEvent.recurrence} event
+          {currentEvent.repeat_until &&
+          ` (repeats until ${new Date(currentEvent.repeat_until).toLocaleDateString()})`}
+          </p>
+        )}
 
         {currentEvent.description && (
           <p>Description: {currentEvent.description}</p>
@@ -132,7 +158,7 @@ const EventPage = () => {
           </div>
         )}
 
-        {!currentEvent.start_time && userId === currentEvent.creator_id && (
+        {isPending && userId === currentEvent.creator_id && (
           <div>
             <h2>Available Timings</h2>
             {timings.length > 0 ? (
@@ -151,7 +177,15 @@ const EventPage = () => {
                               title: currentEvent.title,
                               description: currentEvent.description,
                               eventId: currentEvent.id,
+                              recurrence: currentEvent.recurrence,
+                              repeat_until: currentEvent.repeat_until,
                             },
+                            pendingEventDate: {
+                              title: currentEvent.title,
+                              description: currentEvent.description,
+                              eventId: currentEvent.id,
+                            },
+                            autoOpenForm: true,
                           },
                         });
                       }}
@@ -167,7 +201,7 @@ const EventPage = () => {
           </div>
         )}
 
-        {!currentEvent.start_time && userId !== currentEvent.creator_id && (
+        {isPending && userId !== currentEvent.creator_id && (
           <p className="finalise-message">
             Waiting for the event creator to finalise the timing.
             </p>
@@ -210,7 +244,7 @@ const EventPage = () => {
 
       {updateEvent && (
         <UpdateEvent
-          values={{ currentEvent }}
+          values={{ currentEvent, userId }}
           functions={{ setUpdateEvent, setCurrentEvent, setSuccess }}
         />
       )}
@@ -227,6 +261,7 @@ const EventPage = () => {
 type UpdateEventProps = {
   values: {
     currentEvent: EventData;
+    userId: string;
   };
   functions: {
     setUpdateEvent: React.Dispatch<React.SetStateAction<boolean>>;
@@ -236,7 +271,7 @@ type UpdateEventProps = {
 };
 
 const UpdateEvent = ({
-  values: { currentEvent },
+  values: { currentEvent, userId },
   functions: { setUpdateEvent, setCurrentEvent, setSuccess },
 }: UpdateEventProps) => {
   const [updatedEvent, setUpdatedEvent] = useState<UserEvent>({
@@ -291,24 +326,68 @@ const UpdateEvent = ({
         if (conflicting) {
           const formattedStart = new Date(conflicting.start_time!).toLocaleString();
           const formattedEnd = new Date(conflicting.end_time!).toLocaleString();
-          const username = attendeeMap[conflicting.ownerId] || "a member";
-          
-          setError(
-            `Updated event clashes with ${username}'s "${conflicting.title}" (${formattedStart} - ${formattedEnd})`
-          );
+
+          let message = "";
+
+          if (conflicting.ownerId === userId) {
+            message = `Updated event clashes with your event "${conflicting.title}" (${formattedStart} - ${formattedEnd})`;
+          } else {
+            const username = attendeeMap[conflicting.ownerId] || "a member";
+            message = `Updated event clashes with ${username}'s event (${formattedStart} - ${formattedEnd})`;
+          }
+
+          setError(message);
           setLoading(false);
           return;
         }
       }
 
-      await updateEvent(currentEvent.id, updatedEvent);
+      if (currentEvent.recurrence_group_id) {
+        const updateAll = window.confirm(
+          "This is a recurring event. Apply update to all occurrences?"
+        );
+
+        if (updateAll) {
+          await updateRecurringGroup(currentEvent.recurrence_group_id!, updatedEvent);
+          setSuccess("All recurring events updated successfully!");
+        } else {
+          const isPendingRecurring = 
+            currentEvent.recurrence && 
+            currentEvent.repeat_until &&
+            currentEvent.recurrence_group_id && 
+            !currentEvent.start_time &&
+            !currentEvent.end_time;
+
+          if (isPendingRecurring) {
+            const { error } = await finalisePendingRecurringEvent(
+              currentEvent,
+              updatedEvent.start_time!,
+              updatedEvent.end_time!
+            );
+       
+            if (error) {
+              setError("Failed to finalise recurring event.");
+              setLoading(false);
+              return;
+            }
+
+            setSuccess("Recurring event finalised!");
+            setUpdateEvent(false);
+            setLoading(false);
+            return;
+          }
+        }
+      } else {
+        await updateEvent(currentEvent.id, updatedEvent);
+        setSuccess("Event updated successfully!");
+      }
+
       setCurrentEvent({
         ...updatedEvent,
         id: currentEvent.id,
         creator_id: currentEvent.creator_id,
         group_id: currentEvent.group_id,
       });
-      setSuccess("Event updated successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);

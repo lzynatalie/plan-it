@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import {
   deleteEvent,
+  deleteRecurringGroup,
   EventData,
   getEvents,
 } from "../../../services/calendarService";
@@ -23,7 +24,29 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
     const upcomingEvents = events.filter(
       (event) => event.start_time && new Date(event.start_time) > new Date()
     );
-    setEvents(upcomingEvents);
+
+    const grouped: Record<string, EventData> = {};
+
+    for (const event of upcomingEvents) {
+      const groupId = event.recurrence_group_id ?? event.id;
+      if (!grouped[groupId]) {
+        grouped[groupId] = event;
+      } else {
+        const existing = grouped[groupId];
+        if (
+          existing.start_time && 
+          event.start_time &&
+          new Date(event.start_time) < new Date(existing.start_time)
+        ) {
+          grouped[groupId] = event;
+        }
+      }
+    }
+
+    const sorted = Object.values(grouped).sort((a,b) =>
+      new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime()
+    );
+    setEvents(sorted);
   };
 
   useEffect(() => {
@@ -35,7 +58,19 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    await deleteEvent(eventId);
+    const target = events.find((e) => e.id === eventId);
+    if (!target) return;
+
+    if (target.recurrence_group_id) {
+      const confirmAll = window.confirm("This is a recurring event. Delete all occurrences?");
+      if (confirmAll) {
+        await deleteRecurringGroup(target.recurrence_group_id);
+      } else {
+        await deleteEvent(eventId);
+      }
+    } else {
+      await deleteEvent(eventId);
+    }
     await fetchEvents();
   };
 

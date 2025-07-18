@@ -21,7 +21,16 @@ const PendingEvents = ({ refreshFlag }: PendingEventsProps) => {
   const fetchEvents = async () => {
     const events = await getEvents(userId);
     const upcomingEvents = events.filter((event) => !event.start_time);
-    setEvents(upcomingEvents);
+
+    const grouped: Record<string, EventData> = {};
+
+    for (const event of upcomingEvents) {
+      const groupId = event.recurrence_group_id ?? event.id;
+      if (!grouped[groupId]) {
+        grouped[groupId] = event;
+      }
+    }
+    setEvents(Object.values(grouped));
   };
 
   useEffect(() => {
