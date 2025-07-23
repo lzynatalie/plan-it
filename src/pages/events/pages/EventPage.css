@@ -1,0 +1,65 @@
+/* Poll option default style */
+.poll-option button {
+  padding: 10px 14px;
+  margin: 6px 0;
+  background-color: #f5f3ff; /* light lavender */
+  border: 1px solid #d1c4e9;
+  border-radius: 6px;
+  color: #1a1a1a;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.poll-option button:hover:not(:disabled) {
+  background-color: #e0d7fa;
+}
+
+/* Voted option styling */
+.poll-option button:disabled {
+  background-color: #eaeaea;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* Highlight winning option */
+li.winning-option > button {
+  border: 2px solid #7c4dff !important;
+  background-color: #ede7f6 !important;
+  font-weight: bold;
+}
+
+/* Vote count next to option */
+.vote-count {
+  margin-left: 10px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* Bar background */
+.vote-bar-container {
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  height: 8px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+/* Bar fill (lavender highlight) */
+.vote-bar-fill {
+  height: 100%;
+  background-color: #b39ddb; /* medium lavender */
+  transition: width 0.3s ease;
+}
+
+/* Feedback messages */
+.success p {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.error p {
+  color: #e53935;
+  font-weight: bold;
+}

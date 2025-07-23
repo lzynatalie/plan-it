@@ -6,9 +6,9 @@ import {
   ConfirmedEvent,
   UserEvent,
   createEvent,
-  deleteEvent,
   getEvents,
-  finaliseEvent
+  finaliseEvent,
+  addPollOption
 } from "../../services/calendarService";
 import Calendar from "./components/Calendar";
 import ImportNUSMods from "./components/ImportNUSMods";
@@ -162,8 +162,8 @@ const CalendarPage = () => {
         await finaliseEvent(userId, pendingMeta.eventId, {
           title: newEvent.title,
           description: newEvent.description,
-          start_time: newEvent.start_time,
-          end_time: newEvent.end_time,
+          start_time: newEvent.start_time!,
+          end_time: newEvent.end_time!,
         });
       } else {
         await createEvent(newEvent, userId);
@@ -250,7 +250,8 @@ const CalendarPage = () => {
                 id="start_time"
                 type="datetime-local"
                 required
-                value={newEvent.start_time || ""}
+                value={newEvent.start_time|| ""}
+
                 onChange={(e) =>
                   setNewEvent((prev) => ({ ...prev, start_time: e.target.value }))
                 }
@@ -263,7 +264,7 @@ const CalendarPage = () => {
                 id="end_time"
                 type="datetime-local"
                 required
-                value={newEvent.end_time || ""}
+                value={newEvent.end_time|| ""}
                 onChange={(e) =>
                   setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
                 }
@@ -325,6 +326,33 @@ const CalendarPage = () => {
               )}
 
               <div className="row">
+                {pendingMeta?.eventId && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await addPollOption(
+                          pendingMeta.eventId,
+                          newEvent.start_time + ":00",
+                          newEvent.end_time +":00"
+                        );
+
+                        setSuccess("Poll option added successfully!");
+                        setAddEvent(false);
+                        navigate(`/events/${pendingMeta.eventId}`);
+                      } catch (err) {
+                        if (err instanceof Error) {
+                          setError(err.message);
+                        } else {
+                          setError("Failed to add poll option.")
+                        }
+                      }
+                    }}
+                  >
+                    Add as Poll Option
+                  </button>
+                )}
+
                 <button onClick={(e) => setAddEvent(false)}>Close</button>
 
                 <button type="submit" disabled={loading}>

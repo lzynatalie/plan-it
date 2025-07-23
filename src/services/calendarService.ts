@@ -31,6 +31,13 @@ export type UserEvent = Omit<EventData, "id" | "creator_id"> & {
   recurrence_group_id?: string;
 };
 
+export type PollTiming = {
+  id: string;
+  start_time: string;
+  end_time: string;
+  votes: number;
+};
+
 /**
  * Fetches events that the user is attending
  *
@@ -281,6 +288,9 @@ export async function addEvent(
     event = { ...event, group_id: groupId };
   }
 
+  if (event.start_time === "") event.start_time = null;
+  if (event.end_time === "") event.end_time = null;
+
   const { data, error } = await supabase
     .from("event")
     .insert(event)
@@ -288,12 +298,7 @@ export async function addEvent(
     .single();
 
   if (error) {
-  console.error("Failed to add event:", error.message, {
-    details: error.details,
-    hint: error.hint,
-    code: error.code, 
-    event,
-  });
+  console.error("Failed to add event:", error.message);
     throw error;
   }
 
@@ -620,15 +625,7 @@ export function generateRecurringEvents(base: UserEvent, until: string): UserEve
   let end = new Date(Date.parse(base.end_time!));
   const limit = new Date(until);
 
- console.log("📅 Starting recurring event generation");
-  console.log("Base Start:", base.start_time, "Parsed:", start.toString());
-  console.log("Base End:", base.end_time, "Parsed:", end.toString());
-  console.log("Repeat Until:", until, "Parsed:", limit.toString());
-
   while (start <= limit) {
-    console.log("🟢 Creating event for:", start.toISOString(), "→", end.toISOString());
-console.log(`🧪 Pushing event: ${start.toString()} → ${new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString()}`);
-
     events.push({
       ...base,
       start_time: new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString(),
@@ -819,3 +816,273 @@ export const finalisePendingRecurringEvent = async (
     return { error: "Something went wrong while finalising recurring event." };
   }
 };
+
+/**
+ * Submits a vote for a given timing option on behalf of the user.
+ * If the user already voted for the timing, the duplicate vote is silently ignored.
+ * 
+ * @param userId - the ID of the user voting.
+ * @param timingId - the ID of the event_poll_timing option the user is voting for.
+ */
+export async function submitVote(userId: string, timingId: string) {
+  const { data: timingRow, error: timingErr } = await supabase
+  .from("event_poll_timing")
+  .select("event_id")
+  .eq("id", timingId)
+  .single();
+
+  if (timingErr || !timingRow) {
+    console.error("Failed to get event ID for timing:", timingErr?.message);
+    throw new Error("Could not determine event for vote.");
+  }
+
+  const eventId = timingRow.event_id;
+
+  const { data: timingIds, error: pollErr } = await supabase
+  .from("event_poll_timing")
+  .select("id")
+  .eq("event_id", eventId);
+
+  if (pollErr) {
+    console.error("Failed to fetch timing options for event:", pollErr.message);
+    throw new Error("Could not get timing options.");
+  }
+
+  const allTimingIds = timingIds.map((t) => t.id);
+
+  const { error: removeError } = await supabase
+  .from("event_poll_vote")
+  .delete()
+  .eq("user_id", userId)
+  .in("timing_id", allTimingIds);
+
+  if (removeError) {
+    console.error("Failed to remove previous vote(s);", removeError.message);
+    throw removeError;
+  }
+
+  const { error } = await supabase
+  .from("event_poll_vote")
+  .insert({ user_id: userId, timing_id: timingId });
+
+  if (error && error.code !== "23505") {
+    console.error("Vote submission failed!", error.message);
+    throw error;
+  }
+
+  if (error?.code === "23505") {
+    alert("You’ve already voted for this timing.");
+  }
+}
+
+/**
+ * Fetches all poll timings associated with an event.
+ * 
+ * @param eventId - ID of the event
+ * @returns list of timing options users can vote for.
+ */
+export async function getPollTimings(eventId: string) {
+  const { data, error } = await supabase
+  .from("event_poll_timing")
+  .select("id, start_time, end_time")
+  .eq("event_id", eventId);
+
+  if (error) {
+    console.error("Fetching poll timings failed:", error.message);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Fetches all votes for all timings in a given event's poll.
+ * 
+ * @param eventId - ID of the event
+ * @returns list of vote records (user_id, timing_id)
+ */
+export async function getPollVotes(eventId: string) {
+  const { data, error } = await supabase
+  .from("event_poll_vote")
+  .select("timing_id, user_id, event_poll_timing!inner(event_id)")
+  .eq("event_poll_timing.event_id", eventId);
+
+  if (error) {
+    console.error("Fetching poll votes failed:", error.message);
+    throw error;
+  }
+
+  return data;
+}
+
+/**
+ * Creates an event_poll entry if the event has multiple attendees and is a pending event.
+ * @param eventId - ID of the event.
+ * @param attendeeCount - Number of attendees (including creator).
+ */
+export async function createPollIfNeeded(eventId: string, attendeeCount: number): Promise<void> {
+  if (attendeeCount > 1) {
+    const { error } = await supabase.from("event_poll").insert([{ event_id: eventId }]);
+    if (error) throw error;
+  }
+}
+
+/**
+ * Finalises the poll by choosing the most-voted timing.
+ * If there is a tie, the earliest timing is selected.
+ * @param eventId - ID of the event whose poll is being finalised.
+ */
+export async function finalisePoll(eventId: string): Promise<void> {
+  const timings = await getPollTimings(eventId);
+  const votes = await getPollVotes(eventId);
+
+  const voteCounts: Record<string, number> = {};
+  for (const vote of votes) {
+    voteCounts[vote.timing_id] = (voteCounts[vote.timing_id] || 0) + 1;
+  }
+
+  const sorted = timings.sort((a, b) => {
+    const vA = voteCounts[a.id] || 0;
+    const vB = voteCounts[b.id] || 0;
+    if (vA !== vB) return vB - vA;
+    return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+  });
+
+  const top = sorted[0];
+  if (!top) return;
+
+  const { data: creator, error } = await supabase
+    .from("event")
+    .select("creator_id")
+    .eq("id", eventId)
+    .single();
+
+  if (error || !creator) {
+    console.error("Failed to confirm event:", error.message);
+    throw new Error("Failed to confirm event, please try again later.");
+  }
+
+  await finaliseEvent(creator!.creator_id, eventId, {
+    start_time: top.start_time,
+    end_time: top.end_time,
+  });
+
+  const { error: deleteError } = await supabase
+  .from("event_poll_timing")
+  .delete()
+  .eq("event_id", eventId);
+
+  if (deleteError) {
+    console.error("Failed to delete poll options after finalising:", deleteError.message);
+    throw new Error("Poll finalised but failed to clean up poll options.");
+  }
+}
+
+/**
+ * Checks if all attendees have voted, or if the poll deadline is passed or manually closed.
+ * If so, finalises the poll automatically.
+ * @param eventId - ID of the event to check.
+ */
+export async function checkPollCompletion(eventId: string): Promise<void> {
+  const attendees = await getAttendees(eventId);
+  const votes = await getPollVotes(eventId);
+  const pollVoters = new Set(votes.map((v) => v.user_id));
+
+  const allVoted = attendees.length > 1 && attendees.every((a) => pollVoters.has(a.id));
+
+  const { data: poll } = await supabase
+    .from("event_poll")
+    .select()
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  const deadlinePassed = poll?.deadline && new Date(poll.deadline) < new Date();
+
+  if (poll?.closed || allVoted || deadlinePassed) {
+    await finalisePoll(eventId);
+  }
+}
+
+/**Adds a timing option to the poll for an event.
+ * Only the event creator can do this.
+ * 
+ * @param eventId - ID of the event
+ * @param start_time - ISO start time
+ * @param end_time - ISO end time
+ */
+export async function addPollOption(
+  eventId: string,
+  start_time: string,
+  end_time: string
+) {
+  const { data: existing, error: checkError } = await supabase
+  .from("event_poll_timing")
+  .select("id")
+  .eq("event_id", eventId)
+  .eq("start_time", start_time)
+  .eq("end_time", end_time)
+  .maybeSingle();
+
+  if (checkError) {
+    console.error("Failed to check for duplicates:", checkError.message);
+  }
+
+  if (existing) {
+    throw new Error("This timing has already been added as a poll option.");
+  }
+
+  const { error } = await supabase
+  .from("event_poll_timing")
+  .insert([
+    { 
+      event_id: eventId,
+      start_time,
+      end_time,
+    },
+  ]);
+
+ if (error) {
+  console.error("Failed to add poll option:", error.message);
+  throw new Error(error.message || "Failed to add poll option.");
+}
+
+}
+
+/**
+ * Removes a vote submitted by the current user for a poll option.
+ * This allows users to revoke their vote before the poll is finalised.
+ * 
+ * @param userId - The ID of the user revoking their vote.
+ * @param timingId - the ID of the poll timing option they previously vored for.
+ */
+export async function removeVote(userId: string, timingId: string) {
+  const { error } = await supabase
+  .from("event_poll_vote")
+  .delete()
+  .eq("user_id", userId)
+  .eq("timing_id", timingId);
+
+  if (error) {
+    console.error("Failed to remove vote:", error.message);
+    throw new Error("Failed to remove vote.");
+  }
+}
+
+/**
+ * Deletes a poll timing option from an event's poll.
+ * Only the event creator is allowed to perform this action.
+ *
+ * @param timingId - The ID of the timing option to be deleted.
+ */
+export async function deletePollTiming(timingId: string) {
+  const { error } = await supabase
+    .from("event_poll_timing")
+    .delete()
+    .eq("id", timingId);
+
+  if (error) {
+    console.error("Failed to delete poll timing:", error.message);
+    throw new Error("Failed to delete poll option.");
+  }
+}
+
