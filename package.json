@@ -10,6 +10,7 @@
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@schedule-x/drag-and-drop": "^2.34.0",
     "@schedule-x/event-modal": "^2.34.0",
+    "@schedule-x/event-recurrence": "^2.36.0",
     "@schedule-x/events-service": "^2.35.0",
     "@schedule-x/react": "^2.34.0",
     "@schedule-x/resize": "^2.35.0",
