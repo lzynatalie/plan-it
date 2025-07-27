@@ -18,8 +18,8 @@ import {
   getMembers,
   Group,
   removeMember,
+  updateGroupName
 } from "../../../services/groupService";
-import { isForInStatement } from "typescript";
 
 const GroupPage = () => {
   const { user, getProfile } = useAuthContext();
@@ -138,7 +138,18 @@ const GroupPage = () => {
     <div className="main">
       <button onClick={(e) => navigate("/groups")}>Back</button>
 
-      <h1>{group.name}</h1>
+      {group.creator_id === userId ? (
+        <EditableGroupName
+          groupId={group.id}
+          name={group.name}
+          onUpdate={async () => {
+            const updated = await getGroup(group.id);
+            setGroup(updated);
+          }}
+        />
+      ) : (
+        <h1>{group.name}</h1>
+      )}
 
       <div className="row">
         <div className="box column">
@@ -659,6 +670,49 @@ const CreateEvent = ({
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+// ← 👇 Place this new component right above the export
+const EditableGroupName = ({
+  groupId,
+  name,
+  onUpdate,
+}: {
+  groupId: string;
+  name: string;
+  onUpdate: () => Promise<void>;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [newName, setNewName] = useState(name);
+
+  const handleSave = async () => {
+    try {
+      await updateGroupName(groupId, newName); // from groupService.ts
+      await onUpdate();
+      setEditing(false);
+    } catch {
+      alert("Failed to update group name");
+    }
+  };
+
+  return editing ? (
+    <div className="row">
+      <input
+        value={newName}
+        onChange={(e) => setNewName(e.target.value)}
+        style={{ marginRight: "0.5rem" }}
+      />
+      <button onClick={handleSave}>Save</button>
+      <button onClick={() => setEditing(false)}>Cancel</button>
+    </div>
+  ) : (
+    <div className="row">
+      <h1>{name}</h1>
+      <button onClick={() => setEditing(true)} style={{ marginLeft: "0.5rem" }}>
+        Edit
+      </button>
     </div>
   );
 };
