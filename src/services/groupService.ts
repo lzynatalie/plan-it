@@ -239,3 +239,18 @@ export async function getSharedGroups(userIds: string[]): Promise<Group[]> {
 
   return groups;
 }
+
+/**
+ * Updates the name of a group in the database.
+ * 
+ * @param groupId - The ID of the group to update.
+ * @param name - The new name to assign to the group.
+ */
+export const updateGroupName = async (groupId: string, name: string) => {
+  const { error } = await supabase
+    .from("group")
+    .update({ name })
+    .eq("id", groupId);
+
+  if (error) throw error;
+};
