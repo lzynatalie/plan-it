@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import {
   deleteEvent,
-  deleteRecurringGroup,
   EventData,
   getEvents,
 } from "../../../services/calendarService";
@@ -16,6 +15,8 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
   const { user } = useAuthContext();
   const userId = user!.id;
   const [events, setEvents] = useState<EventData[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<EventData | null>(null);
 
   const navigate = useNavigate();
 
@@ -34,7 +35,7 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
       } else {
         const existing = grouped[groupId];
         if (
-          existing.start_time && 
+          existing.start_time &&
           event.start_time &&
           new Date(event.start_time) < new Date(existing.start_time)
         ) {
@@ -43,8 +44,9 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
       }
     }
 
-    const sorted = Object.values(grouped).sort((a,b) =>
-      new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime()
+    const sorted = Object.values(grouped).sort(
+      (a, b) =>
+        new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime()
     );
     setEvents(sorted);
   };
@@ -53,63 +55,65 @@ const UpcomingEvents = ({ refreshFlag }: UpcomingEventsProps) => {
     fetchEvents();
   }, [refreshFlag]);
 
-  const handleViewEvent = async (eventId: string) => {
+  const handleViewEvent = (eventId: string) => {
     navigate(`/events/${eventId}`);
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    const target = events.find((e) => e.id === eventId);
-    if (!target) return;
+  const handleDeleteEvent = async (event: EventData) => {
+    if (event.recurrence_group_id) {
+      const confirmed = window.confirm(
+        "This is a recurring event.\n\nOnly this occurrence will be deleted.\n\nTo delete the entire series, open the event and delete from there.\n\nProceed with deleting this one?"
+      );
+      if (!confirmed) return;
 
-    if (target.recurrence_group_id) {
-      const confirmAll = window.confirm("This is a recurring event. Delete all occurrences?");
-      if (confirmAll) {
-        await deleteRecurringGroup(target.recurrence_group_id);
-      } else {
-        await deleteEvent(eventId);
-      }
+      await deleteEvent(event.id);
     } else {
-      await deleteEvent(eventId);
+      const confirmed = window.confirm("Are you sure you want to delete this event?");
+      if (!confirmed) return;
+
+      await deleteEvent(event.id);
     }
+
     await fetchEvents();
   };
 
-  return (
-    <div className="column">
-      <h2>Upcoming Events</h2>
 
-      {events.length > 0 ? (
-        <ul>
-          {events.map(
-            ({ id, creator_id, title, description, start_time, end_time }) => (
-              <li key={id}>
+  return (
+    <>
+      <div className="column">
+        <h2>Upcoming Events</h2>
+
+        {events.length > 0 ? (
+          <ul>
+            {events.map((event) => (
+              <li key={event.id}>
                 <div className="box row">
                   <div className="column">
-                    <p>{title}</p>
-                    {description && <p>{description}</p>}
-                    {start_time && (
-                      <p>Start: {new Date(start_time).toLocaleString()}</p>
+                    <p>{event.title}</p>
+                    {event.description && <p>{event.description}</p>}
+                    {event.start_time && (
+                      <p>Start: {new Date(event.start_time).toLocaleString()}</p>
                     )}
-                    {end_time && (
-                      <p>End: {new Date(end_time).toLocaleString()}</p>
+                    {event.end_time && (
+                      <p>End: {new Date(event.end_time).toLocaleString()}</p>
                     )}
                   </div>
 
-                  <button onClick={(e) => handleViewEvent(id)}>View</button>
-                  {userId === creator_id && (
-                    <button onClick={(e) => handleDeleteEvent(id)}>
+                  <button onClick={() => handleViewEvent(event.id)}>View</button>
+                  {userId === event.creator_id && (
+                    <button onClick={() => handleDeleteEvent(event)}>
                       Delete
                     </button>
                   )}
                 </div>
               </li>
-            )
-          )}
-        </ul>
-      ) : (
-        <div className="box">No upcoming events</div>
-      )}
-    </div>
+            ))}
+          </ul>
+        ) : (
+          <div className="box">No upcoming events</div>
+        )}
+      </div>
+    </>
   );
 };
 

@@ -25,6 +25,7 @@ const CalendarPage = () => {
     description: "",
     start_time: "",
     end_time: "",
+    label: "",
   });
   const [importTimetable, setImportTimetable] = useState(false);
   const [addEvent, setAddEvent] = useState(false);
@@ -41,6 +42,7 @@ const CalendarPage = () => {
     eventId: string 
     recurrence?: "weekly" | "monthly" | "annually";
     repeat_until?: string;
+    label?: "compulsory" | "flexible" | "optional";
   } | null>(null);
   const isFinalisingPendingEvent = !!pendingMeta?.eventId;
 
@@ -59,6 +61,7 @@ const CalendarPage = () => {
         eventId: string;
         recurrence?: "weekly" | "monthly" | "annually";
         repeat_until?: string;
+        label?: "compulsory" | "flexible" | "optional";
       };
     };
 
@@ -77,6 +80,7 @@ const CalendarPage = () => {
           end_time: state.highlightRange.end,
           recurrence: state.pendingEventMeta?.recurrence || undefined,
           repeat_until: state.pendingEventMeta?.repeat_until || undefined,
+          label: state.pendingEventMeta?.label || "",
         });
         setAddEvent(true);
       }
@@ -95,6 +99,7 @@ const CalendarPage = () => {
         repeat_until: pendingMeta.repeat_until || prev.repeat_until,
         start_time: highlightRange.start,
         end_time: highlightRange.end,
+        label: pendingMeta.label || prev.label,
       }));
     }
   }, [addEvent, pendingMeta, highlightRange]);
@@ -131,6 +136,12 @@ const CalendarPage = () => {
     if (end < start) {
       setLoading(false);
       setError("End time must be after start time!");
+      return;
+    }
+
+    if (!newEvent.label) {
+      setError("Please select a priority label.");
+      setLoading(false);
       return;
     }
   
@@ -177,11 +188,10 @@ const CalendarPage = () => {
         description: "",
         start_time: "",
         end_time: "",
+        label: "compulsory",
       });
 
       setAddEvent(false);
-
-      setSuccess("Event created successfully!");
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -272,6 +282,29 @@ const CalendarPage = () => {
               </div>
 
               <div className="input-group">
+                <label htmlFor="label">Priority</label>
+                <select
+                id="label"
+                required
+                value={newEvent.label || ""}
+                onChange={(e) =>
+                  setNewEvent((prev) => ({
+                    ...prev,
+                    label: e.target.value as "compulsory" | "flexible" | "optional",
+                  }))
+                }
+                >
+                  <option value="" disabled>Select event priority (required)</option>
+                  <option value="compulsory">Compulsory event (Red)</option>
+                  <option value="flexible">Flexible event, open to rescheduling (Yellow)</option>
+                  <option value="optional">Optional event, open to skipping (Green)</option>
+                </select>
+                <small className="helper-text">
+                  Select the event priority level to indicate how important this event is.
+                </small>
+              </div>
+
+              <div className="input-group">
                 <label htmlFor="recurrence">Repeat</label>
                 <select
                 id="recurrence"
@@ -318,12 +351,6 @@ const CalendarPage = () => {
               )}                
 
               <div className="error">{error && <p>{error}</p>}</div>
-
-              {success && (
-                <div className="success">
-                  <p>{success}</p>
-                </div>
-              )}
 
               <div className="row">
                 {pendingMeta?.eventId && (

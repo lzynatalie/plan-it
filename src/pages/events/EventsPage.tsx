@@ -48,6 +48,7 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
     description: "",
     start_time: null,
     end_time: null,
+    label: "",
   });
   const [invitees, setInvitees] = useState<
     { friendshipId: string; friendId: string; username: string }[]
@@ -72,6 +73,12 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
       if (end < start) {
         setLoading(false);
         setError("End time must be after start time!");
+        return;
+      }
+
+      if (!newEvent.label) {
+        setError("Please select a priority label.");
+        setLoading(false);
         return;
       }
 
@@ -150,6 +157,7 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
         description: "",
         start_time: null,
         end_time: null,
+        label:"",
       });
       setInvitees([]);
       setInviteFriends(false);
@@ -223,6 +231,29 @@ const CreateEvent = ({ functions: { setCreateEvent, setRefreshFlag } }: CreateEv
         <small className="helper-text">
           Leave empty to let Plan-It! suggest a timing!
         </small>
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="label">Priority</label>
+          <select
+          id="label"
+          value={newEvent.label}
+          onChange={(e) =>
+            setNewEvent((prev) => ({
+              ...prev,
+              label: e.target.value as "compulsory" | "flexible" | "optional" | "",
+            }))
+          }
+          required
+          >
+            <option value="" disabled>Select event priority (required)</option>
+            <option value="compulsory">Compulsory event (Red)</option>
+            <option value="flexible">Flexible event, open to rescheduling (Yellow)</option>
+            <option value="optional">Optional event, open to skipping (Green)</option>
+          </select>
+          <small className="helper-text">
+            Select the event priority level to indicate how important this event is.
+          </small>
         </div>
 
         <div className="input-group">

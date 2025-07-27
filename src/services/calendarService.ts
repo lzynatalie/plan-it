@@ -1,4 +1,3 @@
-import userEvent from "@testing-library/user-event";
 import { supabase } from "../config/supabaseClient";
 import { UserData } from "../context/AuthContext";
 
@@ -13,6 +12,7 @@ export type EventData = {
   description?: string;
   start_time?: string | null;
   end_time?: string | null;
+  label: "compulsory" | "flexible" | "optional" | "";
 };
 
 export type ConfirmedEvent = {
@@ -29,6 +29,7 @@ export type UserEvent = Omit<EventData, "id" | "creator_id"> & {
   recurrence?: "weekly" | "monthly" | "annually";
   repeat_until?: string;
   recurrence_group_id?: string;
+  label: "compulsory" | "flexible" | "optional" | "";
 };
 
 export type PollTiming = {
@@ -312,6 +313,23 @@ export async function addEvent(
  * @param updatedEvent
  */
 export async function updateEvent(eventId: string, updatedEvent: UserEvent) {
+  const { data: current, error: fetchError } = await supabase
+    .from("event")
+    .select("recurrence_group_id")
+    .eq("id", eventId)
+    .single();
+
+  if (fetchError) {
+    console.error("Failed to fetch current event before update:", fetchError.message);
+    throw fetchError;
+  }
+
+  const safeUpdate = {
+    ...updatedEvent,
+    recurrence_group_id:
+      updatedEvent.recurrence_group_id ?? current.recurrence_group_id ?? null,
+  };
+
   const { error } = await supabase
     .from("event")
     .update(updatedEvent)
@@ -469,6 +487,10 @@ export async function removeUser(eventId: string, userId: string) {
  * @returns list of time intervals
  */
 export async function getTimings(eventId: string) {
+  if (!eventId || eventId.trim() ==="") {
+    throw new Error("Invalid event ID passed to getTimings()");
+  }
+
   const { data, error } = await supabase.rpc("get_attendees_schedules", {
     _event_id: eventId,
   });
@@ -555,11 +577,6 @@ export async function deleteNUSMODsEvents(userId: string) {
   }
 
   if (data.length === 0) return;
-
-  const confirm = window.confirm(
-    "This action will delete your previously imported NUSMODs timetable. Continue?"
-  );
-  if (!confirm) return;
 
   const { error: deleteError } = await supabase
     .from("event")
@@ -742,6 +759,10 @@ export async function getRecurringTimings({
  * @param groupId - Recurrence group id of event group to be deleted.
  */
 export async function deleteRecurringGroup(groupId: string) {
+  if (!groupId || groupId === "undefined") {
+    throw new Error("Invalid recurrence group ID.");
+  }
+
   const { error } = await supabase
   .from("event")
   .delete()
@@ -802,6 +823,7 @@ export const finalisePendingRecurringEvent = async (
     recurrence_group_id: currentEvent.recurrence_group_id ?? undefined,
     repeat_until: currentEvent.repeat_until,
     group_id: currentEvent.group_id ?? undefined,
+    label: currentEvent.label ?? "compulsory",
   };
 
   try {
@@ -1085,4 +1107,3 @@ export async function deletePollTiming(timingId: string) {
     throw new Error("Failed to delete poll option.");
   }
 }
-

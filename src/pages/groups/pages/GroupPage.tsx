@@ -424,6 +424,7 @@ const CreateEvent = ({
     end_time: null,
     recurrence: undefined,
     repeat_until: undefined,
+    label: "",
   });
   const location = useLocation();
   const isFinalisingPendingEvent = !!location.state?.pendingEventMeta;
@@ -507,6 +508,7 @@ const CreateEvent = ({
         description: "",
         start_time: null,
         end_time: null,
+        label: "",
       });
       await fetchEvents();
       setSuccess("Event created successfully!");
@@ -579,6 +581,29 @@ const CreateEvent = ({
           Leave empty to let Plan-It! suggest a timing!
         </small>
         </div>    
+
+        <div className="input-group">
+          <label htmlFor="label">Priority</label>
+          <select
+          id="label"
+          required
+          value={newEvent.label || ""}
+          onChange={(e) =>
+            setNewEvent((prev) => ({
+              ...prev,
+              label: e.target.value as "compulsory" | "flexible" | "optional",
+            }))
+          }
+          >
+            <option value="" disabled>Select event priority (required)</option>
+            <option value="compulsory">Compulsory event (Red)</option>
+            <option value="flexible">Flexible event, open to rescheduling (Yellow)</option>
+            <option value="optional">Optional event, open to skipping (Green)</option>
+          </select>
+          <small className="helper-text">
+            Select the event priority level to indicate how important this event is.
+          </small>
+        </div>        
 
         <div className="input-group">
           <label htmlFor="recurrence">Repeat</label>
