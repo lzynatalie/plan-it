@@ -23,6 +23,8 @@ export type ConfirmedEvent = {
   description: string | null;
   start_time: string;
   end_time: string;
+  recurrence: string | null;
+  repeat_until: string | null;
 };
 
 export type UserEvent = Omit<EventData, "id" | "creator_id"> & {
@@ -140,20 +142,23 @@ export async function createEvent(
   attendeeIds?: string[],
   groupId?: string
 ) {
-  const isRecurring = !!event.recurrence && !!event.repeat_until && !!event.recurrence_group_id;
+  const isRecurring =
+    !!event.recurrence && !!event.repeat_until && !!event.recurrence_group_id;
   const isPending = !event.start_time || !event.end_time;
 
   if (isRecurring && isPending) {
     const { data, error } = await supabase
-    .from("event")
-    .insert([{
-      ...event,
-      creator_id: creatorId,
-      group_id: groupId || null,
-      start_time: null,
-      end_time: null,
-    }])
-    .select("id");
+      .from("event")
+      .insert([
+        {
+          ...event,
+          creator_id: creatorId,
+          group_id: groupId || null,
+          start_time: null,
+          end_time: null,
+        },
+      ])
+      .select("id");
 
     if (error) {
       console.error("Failed to add base recurring event:", error.message);
@@ -176,11 +181,14 @@ export async function createEvent(
     ];
 
     const { error: userEventError } = await supabase
-    .from("user_event")
-    .insert(attendanceRecords);
+      .from("user_event")
+      .insert(attendanceRecords);
 
     if (userEventError) {
-      console.error("Failed to create user_event entries:", userEventError.message);
+      console.error(
+        "Failed to create user_event entries:",
+        userEventError.message
+      );
       throw userEventError;
     }
 
@@ -191,19 +199,21 @@ export async function createEvent(
     const recurringEvents = generateRecurringEvents(event, event.repeat_until!);
 
     const { data, error } = await supabase
-    .from("event")
-    .insert(recurringEvents.map((e) => ({
-      ...e,
-      creator_id: creatorId,
-      group_id: groupId || null,
-    })))
-    .select("id");
+      .from("event")
+      .insert(
+        recurringEvents.map((e) => ({
+          ...e,
+          creator_id: creatorId,
+          group_id: groupId || null,
+        }))
+      )
+      .select("id");
 
     if (error) {
       console.error("Failed to add recurring events:", error.message);
       throw error;
     }
-    
+
     const eventIds = data.map((row) => row.id);
 
     const attendanceRecords = [
@@ -212,7 +222,7 @@ export async function createEvent(
         user_id: creatorId,
         status: "attending",
       })),
-      ...(attendeeIds || []).flatMap((uid) => 
+      ...(attendeeIds || []).flatMap((uid) =>
         eventIds.map((id) => ({
           event_id: id,
           user_id: uid,
@@ -222,11 +232,14 @@ export async function createEvent(
     ];
 
     const { error: userEventError } = await supabase
-    .from("user_event")
-    .insert(attendanceRecords);
+      .from("user_event")
+      .insert(attendanceRecords);
 
     if (userEventError) {
-      console.error("Failed to create user_event entries:", userEventError.message);
+      console.error(
+        "Failed to create user_event entries:",
+        userEventError.message
+      );
       throw userEventError;
     }
 
@@ -248,8 +261,8 @@ export async function createEvent(
  */
 export async function addEvents(events: UserEvent[], source?: string) {
   const eventsToInsert = source
-  ? events.map((event) => ({ ...event, source }))
-  : events;
+    ? events.map((event) => ({ ...event, source }))
+    : events;
 
   const { data, error } = await supabase
     .from("event")
@@ -561,8 +574,8 @@ function getMissingIntervals(
 
 /**
  * Deletes all events created by user that were imported from NUSMods
- * 
- * @param userId 
+ *
+ * @param userId
  */
 export async function deleteNUSMODsEvents(userId: string) {
   const { data, error: checkError } = await supabase
@@ -593,7 +606,7 @@ export async function deleteNUSMODsEvents(userId: string) {
 /**
  * Finalises a pending event by setting its start and end time.
  * Only the creator of the event is allowed to do this.
- * 
+ *
  * @param userId - ID of the creator of the event
  * @param eventId - ID of the event to finalise
  * @param newDetails - New details to update the event with
@@ -601,13 +614,15 @@ export async function deleteNUSMODsEvents(userId: string) {
 export async function finaliseEvent(
   userId: string,
   eventId: string,
-  newDetails: Partial<Pick<UserEvent, "start_time" | "end_time" | "title" | "description">>
+  newDetails: Partial<
+    Pick<UserEvent, "start_time" | "end_time" | "title" | "description">
+  >
 ) {
   const { data: event, error } = await supabase
-  .from("event")
-  .select("creator_id")
-  .eq("id", eventId)
-  .single();
+    .from("event")
+    .select("creator_id")
+    .eq("id", eventId)
+    .single();
 
   if (error) {
     console.error("Failed to verify event:", error.message);
@@ -619,9 +634,9 @@ export async function finaliseEvent(
   }
 
   const { error: updateError } = await supabase
-  .from("event")
-  .update(newDetails)
-  .eq("id", eventId);
+    .from("event")
+    .update(newDetails)
+    .eq("id", eventId);
 
   if (updateError) {
     console.error("Failed to finalise event:", updateError.message);
@@ -631,22 +646,29 @@ export async function finaliseEvent(
 
 /**
  * Creates recurring events from a base event, based on user's specified frequency.
- * 
+ *
  * @param base - The base event set to recur.
  * @param until - The end date for the recurrence range, set by the user.
  * @returns An array of UserEvent instances, one for each recurrence.
  */
-export function generateRecurringEvents(base: UserEvent, until: string): UserEvent[] {
+export function generateRecurringEvents(
+  base: UserEvent,
+  until: string
+): UserEvent[] {
   const events: UserEvent[] = [];
   let start = new Date(Date.parse(base.start_time!));
   let end = new Date(Date.parse(base.end_time!));
   const limit = new Date(until);
-
+  
   while (start <= limit) {
     events.push({
       ...base,
-      start_time: new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString(),
-      end_time: new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString(),
+      start_time: new Date(
+        start.getTime() - start.getTimezoneOffset() * 60000
+      ).toISOString(),
+      end_time: new Date(
+        end.getTime() - end.getTimezoneOffset() * 60000
+      ).toISOString(),
     });
 
     const nextStart = new Date(start);
@@ -656,8 +678,7 @@ export function generateRecurringEvents(base: UserEvent, until: string): UserEve
       nextStart.setDate(nextStart.getDate() + 7);
       nextEnd.setDate(nextEnd.getDate() + 7);
       start.setDate(start.getDate() + 7);
-end.setDate(end.getDate() + 7);
-
+      end.setDate(end.getDate() + 7);
     } else if (base.recurrence === "monthly") {
       nextStart.setMonth(nextStart.getMonth() + 1);
       nextEnd.setMonth(nextEnd.getMonth() + 1);
@@ -677,8 +698,8 @@ end.setDate(end.getDate() + 7);
 
 /**
  * Checks available timings for a recurring event based on recurrence type and range.
- * 
- * @param userIds - list of user IDs on attendee list to check availability for 
+ *
+ * @param userIds - list of user IDs on attendee list to check availability for
  * @param baseStart - starting datetime (e.g. 2025-07-15T10:00)
  * @param durationMinutes - duration of each event instance
  * @param repeatUntil - ISO date (e.g. 2025-07-15)
@@ -693,7 +714,7 @@ export async function getRecurringTimings({
   recurrence,
   userMap,
 }: {
-  userIds : string[];
+  userIds: string[];
   baseStart: string;
   durationMinutes: number;
   repeatUntil: string;
@@ -701,7 +722,7 @@ export async function getRecurringTimings({
   userMap: Record<string, string>;
 }) {
   if (!baseStart || !durationMinutes || !repeatUntil) {
-    return { conflict: false};
+    return { conflict: false };
   }
 
   const start = new Date(baseStart);
@@ -712,7 +733,9 @@ export async function getRecurringTimings({
   let current = new Date(start);
   while (current <= until) {
     const instanceStart = new Date(current);
-    const instanceEnd = new Date(current.getTime() + durationMinutes * 60 * 1000)
+    const instanceEnd = new Date(
+      current.getTime() + durationMinutes * 60 * 1000
+    );
     allInstances.push([instanceStart, instanceEnd]);
 
     if (recurrence === "weekly") {
@@ -744,7 +767,9 @@ export async function getRecurringTimings({
 
         return {
           conflict: true,
-          message: `Conflict with ${title} (${start} - ${end}) for ${userMap[userId] || "an attendee"}`,
+          message: `Conflict with ${title} (${start} - ${end}) for ${
+            userMap[userId] || "an attendee"
+          }`,
         };
       }
     }
@@ -755,7 +780,7 @@ export async function getRecurringTimings({
 
 /**
  * Deletes all events in a recurrence group i.e. deletes all events instances of a recurring event.
- * 
+ *
  * @param groupId - Recurrence group id of event group to be deleted.
  */
 export async function deleteRecurringGroup(groupId: string) {
@@ -764,9 +789,9 @@ export async function deleteRecurringGroup(groupId: string) {
   }
 
   const { error } = await supabase
-  .from("event")
-  .delete()
-  .eq("recurrence_group_id", groupId);
+    .from("event")
+    .delete()
+    .eq("recurrence_group_id", groupId);
 
   if (error) {
     console.error("Failed to delete recurring event group:", error.message);
@@ -776,7 +801,7 @@ export async function deleteRecurringGroup(groupId: string) {
 
 /**
  * Updates all events in a recurrence group i.e. updates all event instances of a recurring event.
- * 
+ *
  * @param groupId - Recurrence group id of event group to be updated.
  * @param updatedFields - Updated information of the event.
  */
@@ -785,9 +810,9 @@ export async function updateRecurringGroup(
   updatedFields: Partial<UserEvent>
 ) {
   const { error } = await supabase
-  .from("event")
-  .update(updatedFields)
-  .eq("recurrence_group_id", groupId);
+    .from("event")
+    .update(updatedFields)
+    .eq("recurrence_group_id", groupId);
 
   if (error) {
     console.error("Failed to update recurring event group:", error.message);
@@ -799,14 +824,14 @@ export async function updateRecurringGroup(
  * Finalises a pending recurring event by generating all future instances
  * based on the chosen start and end time.
  * Deletes the base placeholder event and inserts the full recurring series of finalised events.
- * 
+ *
  * @param baseEvent - The original placeholder event with recurrence information but no set timing.
  * @param finalisedStart - The confirmed start time to apply to all instances.
  * @param finalisedEnd - The confirmed end time to apply to all instances.
  * @returns An object with optional `error` key if something goes wrong.
  */
 export const finalisePendingRecurringEvent = async (
-  currentEvent: EventData, 
+  currentEvent: EventData,
   finalisedStart: string,
   finalisedEnd: string
 ) => {
