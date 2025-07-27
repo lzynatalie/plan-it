@@ -41,6 +41,13 @@ export type PollTiming = {
   votes: number;
 };
 
+export type PollTiming = {
+  id: string;
+  start_time: string;
+  end_time: string;
+  votes: number;
+};
+
 /**
  * Fetches events that the user is attending
  *
@@ -659,7 +666,7 @@ export function generateRecurringEvents(
   let start = new Date(Date.parse(base.start_time!));
   let end = new Date(Date.parse(base.end_time!));
   const limit = new Date(until);
-  
+
   while (start <= limit) {
     events.push({
       ...base,
