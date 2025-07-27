@@ -111,8 +111,11 @@ const Calendar = ({ events, highlightRange, pendingMeta }: CalendarProps) => {
       //   });
       // },
       onEventClick(calendarEvent: CalendarEventExternal, e: UIEvent) {
-        if (calendarEvent.id === "highlight") {
-          // open the event form pre-filled
+        const isHighlight =
+          calendarEvent.start === toScheduleXFormat(highlightRange?.start || "") &&
+          calendarEvent.end === toScheduleXFormat(highlightRange?.end || "");
+
+        if (calendarEvent.id === "highlight" || isHighlight) {
           navigate("/calendar", {
             state: {
               highlightRange: {
@@ -125,6 +128,7 @@ const Calendar = ({ events, highlightRange, pendingMeta }: CalendarProps) => {
                 description: pendingMeta?.description || "",
                 eventId: pendingMeta?.eventId || "",
               },
+              pendingEventMeta: pendingMeta,
             },
           });
           return;

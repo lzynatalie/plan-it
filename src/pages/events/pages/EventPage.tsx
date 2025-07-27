@@ -2,9 +2,11 @@ import { PostgrestError } from "@supabase/supabase-js";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
+import "./EventPage.css";
 import {
   EventData,
   UserEvent,
+  PollTiming,
   deleteEvent,
   getAttendees,
   getEvent,
@@ -15,10 +17,15 @@ import {
   getEvents,
   deleteRecurringGroup,
   updateRecurringGroup,
-  generateRecurringEvents,
-  finalisePendingRecurringEvent
+  finalisePendingRecurringEvent,
+  getPollTimings,
+  getPollVotes,
+  submitVote,
+  checkPollCompletion,
+  finalisePoll,
+  removeVote,
+  deletePollTiming
 } from "../../../services/calendarService";
-import { supabase } from "@supabase/auth-ui-shared";
 
 const EventPage = () => {
   const { user } = useAuthContext();
@@ -38,11 +45,36 @@ const EventPage = () => {
   >([]);
   const [timings, setTimings] = useState<{ start: string; end: string }[]>([]);
   const [updateEvent, setUpdateEvent] = useState(false);
+  const [pollTimings, setPollTimings] = useState<PollTiming[]>([]);
+  const [pollVotes, setPollVotes] = useState<any[]>([]);
+  const [winningTimingIds, setWinningTimingIds] = useState<string[]>([]);
+  const [userVote, setUserVote] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const { eventId } = useParams();
   const navigate = useNavigate();
+
+  const refreshPollData = async () => {
+    const pollTimings = await getPollTimings(eventId!);
+    const pollVotes = await getPollVotes(eventId!);
+
+    const existingVote = pollVotes.find(v => v.user_id === userId);
+    setUserVote(existingVote?.timing_id || null);
+
+    const voteMap = pollTimings.map((timing) => ({
+      ...timing,
+      votes: pollVotes.filter((v) => v.timing_id === timing.id).length,
+    }));
+
+    const maxVotes = Math.max(0, ...voteMap.map((t) => t.votes));
+    const winningIds = voteMap.filter((t) => t.votes === maxVotes).map((t) => t.id);
+
+    setPollTimings(voteMap);
+    setPollVotes(pollVotes);
+    setWinningTimingIds(winningIds);
+  };
+
 
   const fetchAttendees = async () => {
     const attendees = await getAttendees(currentEvent.id);
@@ -57,19 +89,29 @@ const EventPage = () => {
 
   useEffect(() => {
     const fetchEventDetails = async () => {
-      if (!eventId) {
-        setError("Event not found.");
-        return;
+      try {
+        if (!eventId) {
+          setError("Event not found.");
+          return;
+        }
+
+        const event = await getEvent(eventId);
+        setCurrentEvent(event);
+
+        const attendees = await getAttendees(eventId);
+        setAttendees(attendees);
+
+        const timings = await getTimings(eventId);
+        setTimings(timings);
+
+        // Fetch poll timings and votes if event is pending
+        if (!event.start_time || event.start_time === "") {
+          await refreshPollData();
+        }
+      } catch (err: any) {
+        console.error("Failed to load event details:", err);
+        setError(err?.message || "Failed to load event.");
       }
-
-      const event = await getEvent(eventId);
-      setCurrentEvent(event);
-
-      const attendees = await getAttendees(eventId);
-      setAttendees(attendees);
-
-      const timings = await getTimings(eventId);
-      setTimings(timings);
     };
 
     fetchEventDetails();
@@ -201,10 +243,97 @@ const EventPage = () => {
           </div>
         )}
 
-        {isPending && userId !== currentEvent.creator_id && (
-          <p className="finalise-message">
-            Waiting for the event creator to finalise the timing.
-            </p>
+        {isPending && userId !== currentEvent.creator_id && attendees.length > 1 && (
+          <div className="box">
+            <h3>Vote for your preferred time:</h3>
+            {pollTimings.length > 0 ? (
+              <ul>
+                  {pollTimings.map((timing) => (
+                  <li
+                    key={timing.id}
+                    className={winningTimingIds.includes(timing.id) ? "winning-option" : ""}
+                  >
+                    {userVote === timing.id ? (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await removeVote(userId, timing.id);
+                            refreshPollData();
+                          } catch (err) {
+                            console.error(err);
+                            setError("Failed to remove vote.");
+                          }
+                        }}
+                      >
+                        Remove Vote
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await submitVote(userId, timing.id);
+                            await checkPollCompletion(currentEvent.id);
+                            await refreshPollData();
+                          } catch (err) {
+                            console.error(err);
+                            setError("Failed to submit vote.");
+                          }
+                        }}
+                      >
+                        Vote
+                      </button>
+                    )}
+                    {timing.start_time.replace("T", " ").slice(0, 16)} – {timing.end_time.replace("T", " ").slice(0, 16)}
+                    ({timing.votes} vote{timing.votes !== 1 ? "s" : ""})
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No poll options available yet.</p>
+            )}
+          </div>
+        )}
+
+        {isPending && userId === currentEvent.creator_id && pollTimings.length > 0 && (
+          <div className="box">
+            <h3>Poll Options</h3>
+            <ul>
+              {pollTimings.map((timing) => (
+                <li key={timing.id} className={winningTimingIds.includes(timing.id) ? "winning-option" : ""}>
+                  <p>
+                    {timing.start_time.replace("T", " ").slice(0, 16)} – {timing.end_time.replace("T", " ").slice(0, 16)}
+                    ({timing.votes} vote{timing.votes !== 1 ? "s" : ""})
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deletePollTiming(timing.id);
+                        await refreshPollData();
+                      } catch (err) {
+                        console.error(err);
+                        setError("Failed to delete poll option.");
+                      }
+                    }}
+                  >
+                    Delete Option
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={async () => {
+                try {
+                  await finalisePoll(currentEvent.id);
+                  setSuccess("Poll finalised successfully!");
+                  navigate(0); // refresh the page
+                } catch (err) {
+                  setError("Failed to finalise poll.");
+                }
+              }}
+            >
+              Finalise Poll Now
+            </button>
+          </div>
         )}
 
         {error && (
