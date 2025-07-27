@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { addEvents, deleteNUSMODsEvents, UserEvent } from "../../../services/calendarService";
 import { useAuthContext } from "../../../context/AuthContext";
+import { v4 as uuidv4 } from "uuid";
 
 type Module = {
   semesterData: SemesterData[];
@@ -45,22 +46,22 @@ type Day =
   | "Saturday"
   | "Sunday";
 
-const sem2Dates: {
+const sem1Dates: {
   [week: number]: number;
 } = {
-  1: new Date(2025, 0, 13).getTime(),
-  2: new Date(2025, 0, 20).getTime(),
-  3: new Date(2025, 0, 27).getTime(),
-  4: new Date(2025, 1, 3).getTime(),
-  5: new Date(2025, 1, 10).getTime(),
-  6: new Date(2025, 1, 17).getTime(),
-  7: new Date(2025, 2, 3).getTime(),
-  8: new Date(2025, 2, 10).getTime(),
-  9: new Date(2025, 2, 17).getTime(),
-  10: new Date(2025, 2, 24).getTime(),
-  11: new Date(2025, 2, 31).getTime(),
-  12: new Date(2025, 3, 7).getTime(),
-  13: new Date(2025, 3, 14).getTime(),
+  1: new Date(2025, 7, 11).getTime(),  // 11 Aug 2025
+  2: new Date(2025, 7, 18).getTime(),
+  3: new Date(2025, 7, 25).getTime(),
+  4: new Date(2025, 8, 1).getTime(),
+  5: new Date(2025, 8, 8).getTime(),
+  6: new Date(2025, 8, 15).getTime(),
+  7: new Date(2025, 8, 22).getTime(),
+  8: new Date(2025, 8, 29).getTime(),
+  9: new Date(2025, 9, 6).getTime(),
+  10: new Date(2025, 9, 13).getTime(),
+  11: new Date(2025, 9, 20).getTime(),
+  12: new Date(2025, 9, 27).getTime(),
+  13: new Date(2025, 10, 3).getTime(), // 3 Nov 2025
 };
 
 const days = {
@@ -109,7 +110,7 @@ const ImportNUSMods = ({
     return mods;
   };
 
-  const getLessons = (code: string, c: RawLesson) => {
+  const getLessons = (code: string, c: RawLesson, recurrence_group_id: string): UserEvent[] => {
     const lessons: UserEvent[] = [];
 
     const daysOffset = days[c.day as Day] * 24 * 60 * 60 * 1000;
@@ -117,63 +118,45 @@ const ImportNUSMods = ({
     const endHoursOffset = Number(c.endTime.slice(0, 2)) * 60 * 60 * 1000;
     const timezoneOffset = 8 * 60 * 60 * 1000;
 
-    if (Array.isArray(c.weeks) || c.weeks.weeks) {
-      let weeks: number[] = [];
+    let weeks: number[] = [];
 
-      if (Array.isArray(c.weeks)) {
-        weeks = c.weeks;
-      } else if (c.weeks.weeks) {
-        weeks = c.weeks.weeks;
-      }
-
-      for (const week of weeks) {
-        const weekStart = sem2Dates[week];
-
-        lessons.push({
-          title: `${code} ${c.lessonType}`,
-          description: `Group: ${c.classNo}`,
-
-          start_time: new Date(
-            weekStart + daysOffset + startHoursOffset + timezoneOffset
-          ).toISOString(),
-
-          end_time: new Date(
-            weekStart + daysOffset + endHoursOffset + timezoneOffset
-          ).toISOString(),
-        });
-      }
-
-      return lessons;
-    } else {
-      const weekInterval = c.weeks.weekInterval || 1;
-      const startHoursOffset = Number(c.startTime.slice(0, 2)) * 60 * 60 * 1000;
-      const endHoursOffset = Number(c.endTime.slice(0, 2)) * 60 * 60 * 1000;
-
-      for (let week = 0; (week += weekInterval); week < 13) {
-        const daysOffset = c.weeks.start + week * 7 * 24 * 60 * 60 * 1000;
-
-        lessons.push({
-          title: `${code} ${c.lessonType}`,
-          description: `Group: ${c.classNo}`,
-          start_time: new Date(
-            c.weeks.start + daysOffset + startHoursOffset + timezoneOffset
-          ).toISOString(),
-          end_time: new Date(
-            c.weeks.start + daysOffset + endHoursOffset + timezoneOffset
-          ).toISOString(),
-        });
-      }
-
-      return lessons;
+    if (Array.isArray(c.weeks)) {
+      weeks = c.weeks;
+    } else if (c.weeks.weeks) {
+      weeks = c.weeks.weeks;
     }
+
+    for (const week of weeks) {
+      const weekStart = sem1Dates[week];
+
+      lessons.push({
+        title: `${code} ${c.lessonType}`,
+        description: `Group: ${c.classNo}`,
+
+        start_time: new Date(
+          weekStart + daysOffset + startHoursOffset + timezoneOffset
+        ).toISOString(),
+
+        end_time: new Date(
+          weekStart + daysOffset + endHoursOffset + timezoneOffset
+        ).toISOString(),
+
+        label: "compulsory",
+        recurrence: "weekly",
+        repeat_until: new Date(sem1Dates[13] + daysOffset).toISOString(),
+        recurrence_group_id,
+      });
+    }
+
+    return lessons;
   };
 
   const fetchSchedule = async (
     mods: { code: string; lessons: { type: string; group: string }[] }[]
   ) => {
     // update as needed
-    const year = "2024-2025";
-    const sem = 2;
+    const year = "2025-2026";
+    const sem = 1;
 
     let timetable: UserEvent[] = [];
 
@@ -208,7 +191,8 @@ const ImportNUSMods = ({
       );
 
       filteredClasses.forEach((c) => {
-        const lessons = getLessons(mod.code, c);
+        const recurrence_group_id = uuidv4();
+        const lessons = getLessons(mod.code, c, recurrence_group_id);
         timetable = timetable.concat(lessons);
       });
 
@@ -223,6 +207,7 @@ const ImportNUSMods = ({
               semData.examDuration * 60 * 1000 +
               8 * 60 * 60 * 1000
           ).toISOString(),
+          label: "compulsory",
         });
       }
     }
@@ -233,6 +218,12 @@ const ImportNUSMods = ({
   };
 
   const handleImport = async () => {
+      const confirm = window.confirm(
+        "This action will delete your previously imported NUSMODs timetable. Continue?"
+      );
+
+      if (!confirm) return;
+
     setError("");
     setSuccess(false);
     setLoading(true);
@@ -274,7 +265,8 @@ const ImportNUSMods = ({
       {error && <p style={{ color: "red" }}>{error}</p>}
       {success && (
         <p style={{ color: "green"}}>
-          Timetable imported successfully!
+          Timetable imported successfully!<br />
+          You can change the event priority of any class later from your calendar.
         </p>
       )}
     </div>

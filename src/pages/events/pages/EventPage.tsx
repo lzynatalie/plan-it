@@ -1,8 +1,9 @@
 import { PostgrestError } from "@supabase/supabase-js";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import "./EventPage.css";
+import ConfirmRecurringDelete from "../components/ConfirmDeleteModal";
 import {
   EventData,
   UserEvent,
@@ -27,6 +28,8 @@ import {
   deletePollTiming
 } from "../../../services/calendarService";
 
+const toUTC = (isoString: string) => new Date(isoString.endsWith("Z") ? isoString : isoString + "Z");
+
 const EventPage = () => {
   const { user } = useAuthContext();
   const userId = user!.id;
@@ -39,6 +42,7 @@ const EventPage = () => {
     description: "",
     start_time: "",
     end_time: "",
+    label: ""
   });
   const [attendees, setAttendees] = useState<
     { id: string; username: string }[]
@@ -51,6 +55,25 @@ const EventPage = () => {
   const [userVote, setUserVote] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const[softConflicts, setSoftConflicts] = useState<
+  { start: string; end: string; label: "flexible" | "optional"; title?: string; ownerName: string; }[]
+  >([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (currentEvent.id && currentEvent.id.trim() !== "") {
+      fetchTimings();
+    } else {
+      console.warn("⚠️ currentEvent.id is empty or invalid, not fetching timings");
+    }
+  }, [currentEvent.id]);
+
+  useEffect(() => {
+    if (showDeleteModal && modalRef.current) {
+      modalRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [showDeleteModal]);
 
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -82,9 +105,51 @@ const EventPage = () => {
   };
 
   const fetchTimings = async () => {
-    const timings = await getTimings(currentEvent.id);
+    if (!currentEvent.id || currentEvent.id.trim() === "") return;
 
+    const timings = await getTimings(currentEvent.id);
     setTimings(timings);
+
+    const attendees = await getAttendees(currentEvent.id);
+
+    const userMap = Object.fromEntries(attendees.map(a => [a.id, a.username]));
+
+    const allEvents = (
+      await Promise.all(
+        attendees.map(async ({ id }) => {
+          const events = await getEvents(id);
+          return events.map((e) => ({ ...e, ownerId: id }));
+        })
+      )
+    ).flat();
+    const softClashes = timings.flatMap(({ start, end }) => {
+      const thisStart = toUTC(start).getTime();
+      const thisEnd = toUTC(end).getTime();
+
+      const overlappingEvents = allEvents.filter((event) => {
+        if (!event.start_time || !event.end_time) return false;
+        const eStart = toUTC(event.start_time).getTime();
+        const eEnd = toUTC(event.end_time).getTime();
+        return thisStart < eEnd && thisEnd > eStart;
+      });
+
+      const hasCompulsory = overlappingEvents.some((event) => event.label === "compulsory");
+      if (hasCompulsory) return [];
+
+      const softOnly = overlappingEvents.filter(
+        (event) => event.label === "flexible" || event.label === "optional"
+      );
+
+      return softOnly.map((event) => ({
+        start,
+        end,
+        label: event.label as "flexible" | "optional",
+        title: event.creator_id === userId ? event.title : undefined,
+        ownerName: event.ownerId === userId ? "you" : userMap[event.ownerId] || "a user",
+      }));
+    });
+    
+    setSoftConflicts(softClashes);
   };
 
   useEffect(() => {
@@ -121,29 +186,6 @@ const EventPage = () => {
     await respondToInvite(userId, currentEvent.id, "attending");
     await fetchAttendees();
     await fetchTimings();
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      if (currentEvent.recurrence_group_id) {
-        const confirmAll = window.confirm(
-          "This is a recurring event. Delete all occurrences?"
-        );
-        if (confirmAll) {
-          await deleteRecurringGroup(currentEvent.recurrence_group_id);
-        } else {
-          await deleteEvent(eventId);
-        }
-      } else {
-        await deleteEvent(eventId);
-      }
-
-      navigate("/events");
-    } catch (error) {
-      if (error instanceof PostgrestError) {
-        console.error("Failed to delete event:", error.message);
-      }
-    }
   };
 
   const handleLeaveEvent = async (eventId: string) => {
@@ -203,42 +245,133 @@ const EventPage = () => {
         {isPending && userId === currentEvent.creator_id && (
           <div>
             <h2>Available Timings</h2>
+
+            {/* Legend */}
+            <div className="helper-text" style={{ marginBottom: "0.5rem" }}>
+              <span style={{ backgroundColor: "#fff9c4", color: "#000", padding: "2px 6px", marginRight: "1rem" }}>
+                Flexible (yellow)
+              </span>
+              <span style={{ backgroundColor: "#e8f5e9", color: "#000", padding: "2px 6px" }}>
+                Optional (green)
+              </span>
+            </div>
+
+            {/* Group timings by conflict status */}
             {timings.length > 0 ? (
-              <ol>
-                {timings.map(({ start, end }, index) => (
-                  <li key={index}>
-                    <button
-                      onClick={() => {
-                         navigate("/calendar", {
-                          state: {
-                            highlightRange: {
-                              start: new Date(start).toISOString(),
-                              end: new Date(end).toISOString(),
-                            },
-                            pendingEventMeta: {
-                              title: currentEvent.title,
-                              description: currentEvent.description,
-                              eventId: currentEvent.id,
-                              recurrence: currentEvent.recurrence,
-                              repeat_until: currentEvent.repeat_until,
-                            },
-                            pendingEventDate: {
-                              title: currentEvent.title,
-                              description: currentEvent.description,
-                              eventId: currentEvent.id,
-                            },
-                            autoOpenForm: true,
-                          },
-                        });
-                      }}
-                    >
-                      {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
-                    </button>
-                  </li>
-                ))}
-              </ol>
+              <>
+                {/* Conflict-free timings */}
+                <div className="box">
+                  <h4>Good to go!</h4>
+                  <ul>
+                    {timings.filter(({ start, end }) =>
+                      !softConflicts.some((c) => c.start === start && c.end === end)
+                    ).map(({ start, end }, index) => (
+                      <li key={`safe-${index}`}>
+                        <button
+                          onClick={() => {
+                            navigate("/calendar", {
+                              state: {
+                                highlightRange: {
+                                  start: new Date(start).toISOString(),
+                                  end: new Date(end).toISOString(),
+                                },
+                                pendingEventMeta: {
+                                  title: currentEvent.title,
+                                  description: currentEvent.description,
+                                  eventId: currentEvent.id,
+                                  recurrence: currentEvent.recurrence,
+                                  repeat_until: currentEvent.repeat_until,
+                                  label: currentEvent.label,
+                                },
+                                pendingEventDate: {
+                                  title: currentEvent.title,
+                                  description: currentEvent.description,
+                                  eventId: currentEvent.id,
+                                },
+                                autoOpenForm: true,
+                              },
+                            });
+                          }}
+                        >
+                          {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Timings with soft conflicts */}
+                <div className="box">
+                  <h4>Soft Conflicts</h4>
+                  <ul>
+                    {timings.filter(({ start, end }) =>
+                      softConflicts.some((c) => c.start === start && c.end === end)
+                    ).map(({ start, end }, index) => {
+                      const conflictsForTiming = softConflicts.filter(c => c.start === start && c.end === end);
+
+                      return (
+                        <li key={`conflict-${index}`} style={{ marginBottom: "1rem" }}>
+                          <button
+                            onClick={() => {
+                              navigate("/calendar", {
+                                state: {
+                                  highlightRange: {
+                                    start: new Date(start).toISOString(),
+                                    end: new Date(end).toISOString(),
+                                  },
+                                  pendingEventMeta: {
+                                    title: currentEvent.title,
+                                    description: currentEvent.description,
+                                    eventId: currentEvent.id,
+                                    recurrence: currentEvent.recurrence,
+                                    repeat_until: currentEvent.repeat_until,
+                                    label: currentEvent.label,
+                                  },
+                                  pendingEventDate: {
+                                    title: currentEvent.title,
+                                    description: currentEvent.description,
+                                    eventId: currentEvent.id,
+                                  },
+                                  autoOpenForm: true,
+                                },
+                              });
+                            }}
+                          >
+                            {new Date(start).toLocaleString()} - {new Date(end).toLocaleString()}
+                          </button>
+
+                          <ul style={{ marginTop: "0.25rem" }}>
+                            {conflictsForTiming.map((conflict, cIndex) => (
+                              <li
+                                key={`conflict-desc-${cIndex}`}
+                                style={{
+                                  backgroundColor: conflict.label === "flexible" ? "#fff9c4" : "#e8f5e9",
+                                  color: "#000",
+                                  padding: "0.25rem 0.5rem",
+                                  borderRadius: "4px",
+                                  marginBottom: "0.25rem",
+                                  fontSize: "0.9rem"
+                                }}
+                              >
+                                {conflict.title
+                                  ? `Clashes with your ${conflict.label} event "${conflict.title}"`
+                                  : `Clashes with ${conflict.ownerName}'s ${conflict.label} event`}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  <p className="helper-text" style={{ marginTop: "0.5rem" }}>
+                    These timings overlap with <em>flexible</em> or <em>optional</em> events for one or more attendees.
+                    Flexible events can be rescheduled, and optional ones may be skipped.
+                  </p>
+                </div>
+              </>
             ) : (
-              "No available timings"
+              <div className="box">No available timings</div>
             )}
           </div>
         )}
@@ -358,8 +491,8 @@ const EventPage = () => {
               Update
             </button>
             <button
-              onClick={(e) => {
-                handleDeleteEvent(currentEvent.id);
+              onClick={() => {
+                setShowDeleteModal(true)
               }}
             >
               Delete
@@ -383,6 +516,26 @@ const EventPage = () => {
           <p>{success}</p>
         </div>
       )}
+
+      {showDeleteModal && (
+        <div ref={modalRef}>
+          <ConfirmRecurringDelete
+            onDeleteSingle={async () => {
+              await deleteEvent(currentEvent.id);
+              navigate("/events");
+            }}
+            onDeleteAll={
+              currentEvent.recurrence && currentEvent.recurrence_group_id
+                ? async () => {
+                  await deleteRecurringGroup(currentEvent.recurrence_group_id!);
+                  navigate("/events");
+                }
+              : undefined
+            }
+            onCancel={() => setShowDeleteModal(false)}
+          />
+        </div>
+      )}      
     </div>
   );
 };
@@ -408,6 +561,7 @@ const UpdateEvent = ({
     description: currentEvent.description,
     start_time: currentEvent.start_time,
     end_time: currentEvent.end_time,
+    label: currentEvent.label
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -471,52 +625,55 @@ const UpdateEvent = ({
         }
       }
 
-      if (currentEvent.recurrence_group_id) {
-        const updateAll = window.confirm(
-          "This is a recurring event. Apply update to all occurrences?"
-        );
+      const updateAll = currentEvent.recurrence_group_id
+        ? window.confirm("This is a recurring event. Apply update to all occurrences?")
+        : false;
 
-        if (updateAll) {
-          await updateRecurringGroup(currentEvent.recurrence_group_id!, updatedEvent);
-          setSuccess("All recurring events updated successfully!");
-        } else {
-          const isPendingRecurring = 
-            currentEvent.recurrence && 
-            currentEvent.repeat_until &&
-            currentEvent.recurrence_group_id && 
-            !currentEvent.start_time &&
-            !currentEvent.end_time;
+      if (updateAll && currentEvent.recurrence_group_id) {
+        await updateRecurringGroup(currentEvent.recurrence_group_id, updatedEvent);
+        setSuccess("All recurring events updated successfully!");
+      } else {
+        const isPendingRecurring =
+          currentEvent.recurrence &&
+          currentEvent.repeat_until &&
+          currentEvent.recurrence_group_id &&
+          !currentEvent.start_time &&
+          !currentEvent.end_time;
 
-          if (isPendingRecurring) {
-            const { error } = await finalisePendingRecurringEvent(
-              currentEvent,
-              updatedEvent.start_time!,
-              updatedEvent.end_time!
-            );
-       
-            if (error) {
-              setError("Failed to finalise recurring event.");
-              setLoading(false);
-              return;
-            }
+        if (isPendingRecurring) {
+          const { error } = await finalisePendingRecurringEvent(
+            currentEvent,
+            updatedEvent.start_time!,
+            updatedEvent.end_time!
+          );
 
-            setSuccess("Recurring event finalised!");
-            setUpdateEvent(false);
+          if (error) {
+            setError("Failed to finalise recurring event.");
             setLoading(false);
             return;
           }
-        }
-      } else {
-        await updateEvent(currentEvent.id, updatedEvent);
-        setSuccess("Event updated successfully!");
-      }
 
-      setCurrentEvent({
-        ...updatedEvent,
-        id: currentEvent.id,
-        creator_id: currentEvent.creator_id,
-        group_id: currentEvent.group_id,
-      });
+          setSuccess("Recurring event finalised!");
+          setUpdateEvent(false);
+          setLoading(false);
+          return;
+        }
+
+        await updateEvent(currentEvent.id, {
+          ...updatedEvent,
+          recurrence: currentEvent.recurrence ?? undefined,
+          recurrence_group_id: currentEvent.recurrence_group_id ?? undefined,
+          repeat_until: currentEvent.repeat_until ?? undefined,
+        });
+        setSuccess("Event updated successfully!");
+
+        try {
+          const refreshed = await getEvent(currentEvent.id);
+          setCurrentEvent(refreshed);
+        } catch (err) {
+          console.error("Failed to refetch event:", err);
+        }
+      }
     } catch (error) {
       if (error instanceof PostgrestError) {
         setError(error.message);
@@ -530,7 +687,7 @@ const UpdateEvent = ({
   return (
     <div className="box">
       <form className="column" action="" onSubmit={handleUpdateEvent}>
-                <div className="input-group">
+        <div className="input-group">
           <label htmlFor="title">Title</label>
           <input
           id="title"
@@ -580,6 +737,29 @@ const UpdateEvent = ({
           }
         />
         </div>    
+
+        <div className="input-group">
+          <label htmlFor="label">Priority</label>
+          <select
+            id="label"
+            required
+            value={updatedEvent.label || ""}
+            onChange={(e) =>
+              setUpdatedEvent((prev) => ({
+                ...prev,
+                label: e.target.value as "compulsory" | "flexible" | "optional",
+              }))
+            }
+          >
+            <option value="" disabled>Select event priority (required)</option>
+            <option value="compulsory">Compulsory event (Red)</option>
+            <option value="flexible">Flexible event, open to rescheduling (Yellow)</option>
+            <option value="optional">Optional event, open to skipping (Green)</option>
+          </select>
+          <small className="helper-text">
+            Update the event priority level if your plans have changed, or to help others plan around this event!
+          </small>
+        </div>
 
         {error && (
           <div className="error">
