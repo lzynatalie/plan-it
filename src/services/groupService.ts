@@ -13,15 +13,31 @@ export type Membership = {
   role: string;
 };
 
-export async function getGroups(): Promise<Group[]> {
-  const { data, error } = await supabase.from("group").select();
+export async function getGroups(userId: string): Promise<Group[]> {
+  const { data: memberships, error } = await supabase
+  .from("user_group")
+  .select("group_id")
+  .eq("user_id", userId)
+  .eq("status", "accepted");
 
   if (error) {
     console.error("Failed to fetch groups:", error.message);
     throw error;
   }
 
-  return data;
+  const groupIds = memberships.map((row) => row.group_id);
+
+  const { data: groups, error: groupError } = await supabase
+  .from("group")
+  .select("*")
+  .in("id", groupIds);
+
+  if (groupError) {
+    console.error("Failed to fetch group data:", groupError.message);
+    throw groupError;
+  }
+
+  return groups;
 }
 
 export async function getGroup(groupId: string): Promise<Group> {
@@ -79,8 +95,9 @@ export async function deleteGroup(groupId: string) {
 export async function getMembers(groupId: string) {
   const { data, error } = await supabase
     .from("user_group")
-    .select(`user(id, username)`)
-    .eq("group_id", groupId);
+    .select(`user(id, username), status`)
+    .eq("group_id", groupId)
+    .eq("status", "accepted");
 
   if (error) {
     console.error("Failed to get members:", error.message);
@@ -89,9 +106,13 @@ export async function getMembers(groupId: string) {
 
   const memberships = data as unknown as {
     user: { id: string; username: string };
+    status: string;
   }[];
 
-  return memberships.map((membership) => membership.user);
+  return memberships.map((membership) => ({
+    ...membership.user,
+    status: membership.status,
+  }));
 }
 
 /**
@@ -104,6 +125,8 @@ export async function addMembers(memberIds: string[], groupId: string) {
   const members = memberIds.map((memberId) => ({
     user_id: memberId,
     group_id: groupId,
+    role: "member",
+    status: "invited", 
   }));
 
   const { error } = await supabase.from("user_group").insert(members);
@@ -130,7 +153,12 @@ export async function addMember(
 ) {
   const { error } = await supabase
     .from("user_group")
-    .insert({ user_id: memberId, group_id: groupId, role: role });
+    .insert({
+      user_id: memberId,
+      group_id: groupId,
+      role: role || "member",
+      status: "accepted",
+    });
 
   if (error) {
     console.error("Failed to add member:", error.message);
@@ -254,3 +282,63 @@ export const updateGroupName = async (groupId: string, name: string) => {
 
   if (error) throw error;
 };
+
+/**
+ * Fetches all group invitations for a user (status = 'invited').
+ * 
+ * @param userId - The user ID to fetch group invites for.
+ * @returns Array of group data the user is invited to.
+ */
+export async function getGroupInvites(userId: string): Promise<Group[]> {
+  const { data: userGroupRows, error } = await supabase
+    .from("user_group")
+    .select("group_id")
+    .eq("user_id", userId)
+    .eq("status", "invited");
+
+  if (error) {
+    console.error("Failed to fetch group invites:", error.message);
+    throw error;
+  }
+
+  const groupIds = userGroupRows.map((row) => row.group_id);
+
+  const { data: groups, error: groupError } = await supabase
+    .from("group")
+    .select("id, name, creator_id")
+    .in("id", groupIds);
+
+  if (groupError) {
+    console.error("Failed to fetch group data:", groupError.message);
+    throw groupError;
+  }
+
+  return groups;
+}
+
+
+/**
+ * Updates a group invitation status (e.g. accepted, declined).
+ * 
+ * @param userId - The invited user.
+ * @param groupId - The group ID.
+ * @param status - New status: 'accepted' or 'declined'.
+ */
+export async function respondToGroupInvite(
+  userId: string,
+  groupId: string,
+  status: "accepted" | "declined"
+) {
+  const { error } = await supabase
+    .from("user_group")
+    .update({ status })
+    .eq("user_id", userId)
+    .eq("group_id", groupId);
+
+    if (error) {
+    console.error("Failed to update group invite status:", error.message);
+    throw error;
+  } else {
+    console.log(`✅ Invite updated: ${status} for group ${groupId}`);
+  }
+}

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext, UserData } from "../../context/AuthContext";
 import { getFriend, getFriendships } from "../../services/friendService";
 import { Group, createGroup, getGroups } from "../../services/groupService";
+import GroupInvites from "./components/GroupInvites";
 
 const GroupsPage = () => {
   const { user, getProfile } = useAuthContext();
@@ -26,13 +27,14 @@ const GroupsPage = () => {
     }[]
   >([]);
   const [createNewGroup, setCreateNewGroup] = useState(false);
+  const [refreshFlag, setRefreshFlag] = useState(0);
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
   const fetchGroups = async () => {
     try {
-      const groups = await getGroups();
+      const groups = await getGroups(userId);
       setGroups(groups);
     } catch (error) {
       if (error instanceof PostgrestError) {
@@ -43,7 +45,7 @@ const GroupsPage = () => {
 
   useEffect(() => {
     fetchGroups();
-  }, []);
+  }, [refreshFlag]);
 
   const handleCreateGroup = async () => {
     const memberIds = members.map((member) => member.friendId);
@@ -93,6 +95,8 @@ const GroupsPage = () => {
       ) : (
         <div className="box">No groups yet</div>
       )}
+
+      <GroupInvites refreshFlag={refreshFlag} setRefreshFlag={setRefreshFlag} />
 
       {error && (
         <div className="error">
