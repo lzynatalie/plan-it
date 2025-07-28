@@ -829,7 +829,12 @@ export const finalisePendingRecurringEvent = async (
   try {
     const events = generateRecurringEvents(base, currentEvent.repeat_until);
 
-    await deleteEvent(currentEvent.id);
+    if (currentEvent.recurrence_group_id) {
+      await deleteRecurringGroup(currentEvent.recurrence_group_id);
+    } else {
+      await deleteEvent(currentEvent.id);
+    }
+
     await addEvents(events);
 
     return {};

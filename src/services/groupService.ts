@@ -342,3 +342,27 @@ export async function respondToGroupInvite(
     console.log(`✅ Invite updated: ${status} for group ${groupId}`);
   }
 }
+
+/**
+ * Fetches all users who are invited to the group but haven't accepted yet.
+ * 
+ * @param groupId - The group ID.
+ * @returns Array of invited users (id and username).
+ */
+export async function getInvitedMembers(groupId: string): Promise<{ id: string; username: string }[]> {
+  const { data, error } = await supabase
+    .from("user_group")
+    .select("user_id, user: user_id (username)")
+    .eq("group_id", groupId)
+    .eq("status", "invited");
+
+  if (error) {
+    console.error("Failed to fetch invited members:", error.message);
+    throw error;
+  }
+
+  return data.map((entry) => ({
+    id: entry.user_id,
+    username: (entry as any).user.username,
+  }));
+}

@@ -118,14 +118,12 @@ const EventPage = () => {
       rangeLimit.setMonth(now.getMonth() + 3);
     }
 
-    const filtered = timings.filter(({ start, end }) => {
-      const startTime = new Date(start);
-      const endTime = new Date(end);
-      return (
-        startTime >= now &&
-        startTime <= rangeLimit &&
-        endTime <= rangeLimit
-      );
+    const filtered = timings.filter(({ start }) => {
+      const startTime = new Date(start).getTime();
+      const nowTime = now.getTime();
+      const rangeLimitTime = rangeLimit.getTime();
+
+      return startTime >= nowTime && startTime <= rangeLimitTime;
     });
 
     const attendees = await getAttendees(currentEvent.id);

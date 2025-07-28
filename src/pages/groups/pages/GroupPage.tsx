@@ -18,7 +18,8 @@ import {
   getMembers,
   Group,
   removeMember,
-  updateGroupName
+  updateGroupName,
+  getInvitedMembers
 } from "../../../services/groupService";
 
 const GroupPage = () => {
@@ -50,6 +51,7 @@ const GroupPage = () => {
   const [events, setEvents] = useState<EventData[]>([]);
   const [addNewMembers, setAddNewMembers] = useState(false);
   const [createNewEvent, setCreateNewEvent] = useState(false);
+  const [invitedMembers, setInvitedMembers] = useState<{ id: string; username: string }[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -79,6 +81,9 @@ const GroupPage = () => {
 
       const members = await getMembers(groupId);
       setMembers(members);
+
+      const invited = await getInvitedMembers(groupId);
+      setInvitedMembers(invited);
 
       const events = await getGroupEvents(groupId);
       setEvents(events);
@@ -191,7 +196,7 @@ const GroupPage = () => {
                 </div>
               )}
               <AddMembers
-                values={{ userId, members, friends }}
+                values={{ userId, members, friends, invitedMembers }}
                 functions={{
                   setNewMembers,
                   setFriends,
@@ -226,6 +231,21 @@ const GroupPage = () => {
             </ul>
           ) : (
             <div className="box">No members yet</div>
+          )}
+
+          {invitedMembers.length > 0 && (
+            <div className="box">
+              <h2>Pending Invites</h2>
+              <ul>
+                {invitedMembers.map((member) => (
+                  <li key={member.id}>
+                    <div className="box row">
+                      <p>{member.username}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 
@@ -310,6 +330,7 @@ type AddMembersProps = {
   values: {
     userId: string;
     members: { id: string; username: string }[];
+    invitedMembers: { id: string; username: string}[];
     friends: {
       friendshipId: string;
       friendId: string;
@@ -341,7 +362,7 @@ type AddMembersProps = {
 };
 
 const AddMembers = ({
-  values: { userId, members, friends },
+  values: { userId, members, friends, invitedMembers },
   functions: { setNewMembers, setFriends, setError, getProfile },
 }: AddMembersProps) => {
   useEffect(() => {
@@ -349,11 +370,15 @@ const AddMembers = ({
       try {
         const friendships = await getFriendships();
         const memberIds = members.map((member) => member.id);
+        const invitedIds = invitedMembers.map((m) => m.id);
+        const excludeIds = new Set([...memberIds, ...invitedIds]);
+
         const friends = await Promise.all(
           friendships
-            .filter(
-              (friendship) => !memberIds.includes(getFriend(userId, friendship))
-            )
+          .filter((friendship) => {
+            const friendId = getFriend(userId, friendship);
+            return !excludeIds.has(friendId);
+          })
             .map(async (friendship) => {
               const friendId = getFriend(userId, friendship);
               const profile = await getProfile(friendId);

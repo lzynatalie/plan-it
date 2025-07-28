@@ -8,7 +8,8 @@ import {
   createEvent,
   getEvents,
   finaliseEvent,
-  addPollOption
+  addPollOption,
+  finalisePendingRecurringEvent,
 } from "../../services/calendarService";
 import Calendar from "./components/Calendar";
 import ImportNUSMods from "./components/ImportNUSMods";
@@ -169,14 +170,35 @@ const CalendarPage = () => {
         return;
       }
 
-      if (pendingMeta?.eventId) {
+     if (pendingMeta?.eventId) {
+      const { recurrence, repeat_until, label } = pendingMeta;
+
+      if (recurrence && repeat_until) {
+        await finalisePendingRecurringEvent(
+          {
+            id: pendingMeta.eventId,
+            creator_id: userId,
+            recurrence,
+            recurrence_group_id: newEvent.recurrence_group_id ?? undefined,
+            repeat_until,
+            title: newEvent.title,
+            description: newEvent.description,
+            start_time: null,
+            end_time: null,
+            label: label ?? "compulsory",
+          },
+          newEvent.start_time!,
+          newEvent.end_time!
+        );
+      } else {
         await finaliseEvent(userId, pendingMeta.eventId, {
           title: newEvent.title,
           description: newEvent.description,
           start_time: newEvent.start_time!,
           end_time: newEvent.end_time!,
         });
-      } else {
+      }
+     } else {
         await createEvent(newEvent, userId);
       }
 
