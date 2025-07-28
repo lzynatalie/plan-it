@@ -161,6 +161,8 @@ const CreateGroup = ({
     getProfile,
   },
 }: CreateGroupProps) => {
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
   useEffect(() => {
     const fetchFriends = async () => {
       try {
@@ -186,6 +188,12 @@ const CreateGroup = ({
 
     fetchFriends();
   }, []);
+
+    const handleCreateGroupWrapper = async () => {
+      setAttemptedSubmit(true);
+      if (members.length === 0) return;
+      await handleCreateGroup();
+    };
 
   return (
     <div className="box">
@@ -250,8 +258,19 @@ const CreateGroup = ({
 
       <div className="row">
         <button onClick={(e) => setCreateNewGroup(false)}>Close</button>
-        <button onClick={(e) => handleCreateGroup()}>Create</button>
+        <button 
+          onClick={handleCreateGroupWrapper}
+          className={members.length === 0 ? "disabled-button" : ""}
+        >
+          Create
+        </button>
       </div>
+
+      {attemptedSubmit && members.length === 0 && (
+        <p style={{ color: "red", marginTop: "0.5rem" }}>
+          You must invite at least one member.
+        </p>
+      )}
     </div>
   );
 };
