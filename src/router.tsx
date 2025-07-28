@@ -14,7 +14,6 @@ import ResetPasswordPage from "./pages/login/pages/ResetPasswordPage";
 import UpdatePasswordPage from "./pages/login/pages/UpdatePasswordPage";
 import CreateProfilePage from "./pages/register/pages/CreateProfilePage";
 import RegisterPage from "./pages/register/RegisterPage";
-import VenuesPage from "./pages/venues/VenuesPage";
 
 export const router = createBrowserRouter([
   {
@@ -53,10 +52,6 @@ export const router = createBrowserRouter([
       {
         path: "groups/:groupId",
         element: <GroupPage />,
-      },
-      {
-        path: "venues",
-        element: <VenuesPage />,
       },
     ],
   },

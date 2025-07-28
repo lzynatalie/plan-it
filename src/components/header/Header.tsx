@@ -23,9 +23,6 @@ const Header = () => {
       <Link className={styles.link} to="/groups">
         Groups
       </Link>
-      <Link className={styles.link} to="/venues">
-        Venues
-      </Link>
     </div>
   );
 };
