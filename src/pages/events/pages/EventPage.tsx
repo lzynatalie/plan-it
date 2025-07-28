@@ -59,15 +59,14 @@ const EventPage = () => {
   { start: string; end: string; label: "flexible" | "optional"; title?: string; ownerName: string; }[]
   >([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [range, setRange] = useState<"week" | "month" | "3months">("week");
   const modalRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (currentEvent.id && currentEvent.id.trim() !== "") {
       fetchTimings();
-    } else {
-      console.warn("⚠️ currentEvent.id is empty or invalid, not fetching timings");
     }
-  }, [currentEvent.id]);
+  }, [currentEvent.id, range]);
 
   useEffect(() => {
     if (showDeleteModal && modalRef.current) {
@@ -108,7 +107,26 @@ const EventPage = () => {
     if (!currentEvent.id || currentEvent.id.trim() === "") return;
 
     const timings = await getTimings(currentEvent.id);
-    setTimings(timings);
+    const now = new Date();
+    let rangeLimit = new Date();
+
+    if (range === "week") {
+      rangeLimit.setDate(now.getDate() + 7);
+    } else if (range === "month") {
+      rangeLimit.setDate(now.getDate() + 30);
+    } else if (range === "3months") {
+      rangeLimit.setMonth(now.getMonth() + 3);
+    }
+
+    const filtered = timings.filter(({ start, end }) => {
+      const startTime = new Date(start);
+      const endTime = new Date(end);
+      return (
+        startTime >= now &&
+        startTime <= rangeLimit &&
+        endTime <= rangeLimit
+      );
+    });
 
     const attendees = await getAttendees(currentEvent.id);
 
@@ -122,7 +140,7 @@ const EventPage = () => {
         })
       )
     ).flat();
-    const softClashes = timings.flatMap(({ start, end }) => {
+    const softClashes = filtered.flatMap(({ start, end }) => {
       const thisStart = toUTC(start).getTime();
       const thisEnd = toUTC(end).getTime();
 
@@ -150,6 +168,7 @@ const EventPage = () => {
     });
     
     setSoftConflicts(softClashes);
+    setTimings(filtered);
   };
 
   useEffect(() => {
@@ -244,6 +263,18 @@ const EventPage = () => {
 
         {isPending && userId === currentEvent.creator_id && (
           <div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ marginRight: "0.5rem" }}>View availability for:</label>
+              <select
+                value={range}
+                onChange={(e) => setRange(e.target.value as "week" | "month" | "3months")}
+              >
+                <option value="week">Next 7 days</option>
+                <option value="month">Next 30 days</option>
+                <option value="3months">Next 3 months</option>
+              </select>
+            </div>
+
             <h2>Available Timings</h2>
 
             {/* Legend */}
