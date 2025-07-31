@@ -41,13 +41,6 @@ export type PollTiming = {
   votes: number;
 };
 
-export type PollTiming = {
-  id: string;
-  start_time: string;
-  end_time: string;
-  votes: number;
-};
-
 /**
  * Fetches events that the user is attending
  *
