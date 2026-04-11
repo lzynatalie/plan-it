@@ -259,10 +259,12 @@ export async function createEvent(
  *
  * @param events
  */
-export async function addEvents(events: UserEvent[], source?: string) {
-  const eventsToInsert = source
-    ? events.map((event) => ({ ...event, source }))
-    : events;
+export async function addEvents(events: UserEvent[], source?: string, userId?: string) {
+  const eventsToInsert = events.map((event) => ({
+    ...event,
+    source: source || null,
+    creator_id: userId,
+  }));
 
   const { data, error } = await supabase
     .from("event")
@@ -275,7 +277,7 @@ export async function addEvents(events: UserEvent[], source?: string) {
   }
 
   const newEvents: { event_id: string; status: string }[] = data.map(
-    (event) => ({ event_id: event.id, status: "attending" })
+    (event) => ({ event_id: event.id, user_id: userId, status: "attending" })
   );
 
   const { error: eventError } = await supabase
@@ -284,7 +286,7 @@ export async function addEvents(events: UserEvent[], source?: string) {
 
   if (eventError) {
     console.error("Failed to add events:", eventError.message);
-    throw error;
+    throw eventError;
   }
 }
 

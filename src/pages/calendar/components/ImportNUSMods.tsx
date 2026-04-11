@@ -64,6 +64,23 @@ const sem1Dates: {
   13: new Date(2025, 10, 3).getTime(), // 3 Nov 2025
 };
 
+const sem2Dates: { [week: number]: number } = {
+  1: new Date(2026, 0, 12).getTime(), // Mon 12 Jan 2026
+  2: new Date(2026, 0, 19).getTime(),
+  3: new Date(2026, 0, 26).getTime(),
+  4: new Date(2026, 1, 2).getTime(),
+  5: new Date(2026, 1, 9).getTime(),
+  6: new Date(2026, 1, 16).getTime(),
+  // recess week: 21 Feb – 1 Mar
+  7: new Date(2026, 2, 2).getTime(),  // Mon 2 Mar 2026
+  8: new Date(2026, 2, 9).getTime(),
+  9: new Date(2026, 2, 16).getTime(),
+  10: new Date(2026, 2, 23).getTime(),
+  11: new Date(2026, 2, 30).getTime(),
+  12: new Date(2026, 3, 6).getTime(),
+  13: new Date(2026, 3, 13).getTime(), // Mon 13 April 2026
+};
+
 const days = {
   Monday: 0,
   Tuesday: 1,
@@ -110,7 +127,11 @@ const ImportNUSMods = ({
     return mods;
   };
 
-  const getLessons = (code: string, c: RawLesson, recurrence_group_id: string): UserEvent[] => {
+  const getLessons = (
+      code: string,
+      c: RawLesson,
+      recurrence_group_id: string,
+      sem: number): UserEvent[] => {
     const lessons: UserEvent[] = [];
 
     const daysOffset = days[c.day as Day] * 24 * 60 * 60 * 1000;
@@ -127,7 +148,7 @@ const ImportNUSMods = ({
     }
 
     for (const week of weeks) {
-      const weekStart = sem1Dates[week];
+      const weekStart = sem == 1 ? sem1Dates[week] : sem2Dates[week];
 
       lessons.push({
         title: `${code} ${c.lessonType}`,
@@ -142,9 +163,6 @@ const ImportNUSMods = ({
         ).toISOString(),
 
         label: "compulsory",
-        recurrence: "weekly",
-        repeat_until: new Date(sem1Dates[13] + daysOffset).toISOString(),
-        recurrence_group_id,
       });
     }
 
@@ -156,7 +174,7 @@ const ImportNUSMods = ({
   ) => {
     // update as needed
     const year = "2025-2026";
-    const sem = 1;
+    const sem = 2;
 
     let timetable: UserEvent[] = [];
 
@@ -192,7 +210,7 @@ const ImportNUSMods = ({
 
       filteredClasses.forEach((c) => {
         const recurrence_group_id = uuidv4();
-        const lessons = getLessons(mod.code, c, recurrence_group_id);
+        const lessons = getLessons(mod.code, c, recurrence_group_id, sem);
         timetable = timetable.concat(lessons);
       });
 
@@ -214,7 +232,7 @@ const ImportNUSMods = ({
 
     setTimetable(timetable);
 
-    await addEvents(timetable, "nusmods");
+    await addEvents(timetable, "nusmods", user!.id);
   };
 
   const handleImport = async () => {
