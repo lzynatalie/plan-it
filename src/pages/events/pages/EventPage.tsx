@@ -106,7 +106,8 @@ const EventPage = () => {
   const fetchTimings = async () => {
     if (!currentEvent.id || currentEvent.id.trim() === "") return;
 
-    const timings = await getTimings(currentEvent.id);
+    const { goodToGo, softConflicts } = (await getTimings(currentEvent.id)) as any;
+
     const now = new Date();
     let rangeLimit = new Date();
 
@@ -118,55 +119,26 @@ const EventPage = () => {
       rangeLimit.setMonth(now.getMonth() + 3);
     }
 
-    const filtered = timings.filter(({ start }) => {
-      const startTime = new Date(start).getTime();
-      const nowTime = now.getTime();
-      const rangeLimitTime = rangeLimit.getTime();
-
-      return startTime >= nowTime && startTime <= rangeLimitTime;
+    const filteredGoodToGo = goodToGo.filter((t: any) => {
+      const startTime = new Date(t.start).getTime();
+      return startTime >= now.getTime() && startTime <= rangeLimit.getTime();
     });
 
     const attendees = await getAttendees(currentEvent.id);
-
     const userMap = Object.fromEntries(attendees.map(a => [a.id, a.username]));
 
-    const allEvents = (
-      await Promise.all(
-        attendees.map(async ({ id }) => {
-          const events = await getEvents(id);
-          return events.map((e) => ({ ...e, ownerId: id }));
+    const filteredSoftConflicts = softConflicts
+        .filter((t: any) => {
+          const startTime = new Date(t.start).getTime();
+          return startTime >= now.getTime() && startTime <= rangeLimit.getTime();
         })
-      )
-    ).flat();
-    const softClashes = filtered.flatMap(({ start, end }) => {
-      const thisStart = toUTC(start).getTime();
-      const thisEnd = toUTC(end).getTime();
+        .map((c: any) => ({
+          ...c,
+          ownerName: c.ownerName === userId ? "you" : userMap[c.ownerName] || "a user"
+        }));
 
-      const overlappingEvents = allEvents.filter((event) => {
-        if (!event.start_time || !event.end_time) return false;
-        const eStart = toUTC(event.start_time).getTime();
-        const eEnd = toUTC(event.end_time).getTime();
-        return thisStart < eEnd && thisEnd > eStart;
-      });
-
-      const hasCompulsory = overlappingEvents.some((event) => event.label === "compulsory");
-      if (hasCompulsory) return [];
-
-      const softOnly = overlappingEvents.filter(
-        (event) => event.label === "flexible" || event.label === "optional"
-      );
-
-      return softOnly.map((event) => ({
-        start,
-        end,
-        label: event.label as "flexible" | "optional",
-        title: event.creator_id === userId ? event.title : undefined,
-        ownerName: event.ownerId === userId ? "you" : userMap[event.ownerId] || "a user",
-      }));
-    });
-    
-    setSoftConflicts(softClashes);
-    setTimings(filtered);
+    setTimings(filteredGoodToGo);
+    setSoftConflicts(filteredSoftConflicts);
   };
 
   useEffect(() => {
@@ -183,8 +155,9 @@ const EventPage = () => {
         const attendees = await getAttendees(eventId);
         setAttendees(attendees);
 
-        const timings = await getTimings(eventId);
-        setTimings(timings);
+        const fetchedTimings = (await getTimings(eventId)) as any;
+        setTimings(fetchedTimings.goodToGo);
+        setSoftConflicts(fetchedTimings.softConflicts);
 
         // Fetch poll timings and votes if event is pending
         if (!event.start_time || event.start_time === "") {
@@ -217,6 +190,13 @@ const EventPage = () => {
   };
 
   const isPending = !currentEvent.start_time || currentEvent.start_time === "";
+
+  const uniqueSoftConflictTimings = Array.from(
+      new Set(softConflicts.map((c) => `${c.start}|${c.end}`))
+  ).map((str) => {
+    const [start, end] = str.split("|");
+    return { start, end };
+  });
 
   return (
     <div className="main">
@@ -292,11 +272,9 @@ const EventPage = () => {
                 <div className="box">
                   <h4>Good to go!</h4>
                   <ul>
-                    {timings.filter(({ start, end }) =>
-                      !softConflicts.some((c) => c.start === start && c.end === end)
-                    ).map(({ start, end }, index) => (
-                      <li key={`safe-${index}`}>
-                        <button
+                    {timings.map(({ start, end }, index) => (
+                        <li key={`safe-${index}`}>
+                          <button
                           onClick={() => {
                             navigate("/calendar", {
                               state: {
@@ -333,9 +311,7 @@ const EventPage = () => {
                 <div className="box">
                   <h4>Soft Conflicts</h4>
                   <ul>
-                    {timings.filter(({ start, end }) =>
-                      softConflicts.some((c) => c.start === start && c.end === end)
-                    ).map(({ start, end }, index) => {
+                    {uniqueSoftConflictTimings.map(({ start, end }, index) => {
                       const conflictsForTiming = softConflicts.filter(c => c.start === start && c.end === end);
 
                       return (
@@ -626,6 +602,8 @@ const UpdateEvent = ({
         ).flat();  
 
         const conflicting = allEvents.find((e) => {
+          if (e.label === "flexible" || e.label === "optional") return false;
+
           return (
             e.start_time &&
             e.end_time &&

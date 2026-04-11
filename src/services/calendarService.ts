@@ -515,28 +515,59 @@ export async function getTimings(eventId: string) {
     throw error;
   }
 
-  const events = data as {
-    id: string;
-    creator_id: string;
-    group_id?: string | null;
-    title: string;
-    description?: string;
-    start_time: string;
-    end_time: string;
-  }[];
-
-  const intervals = events.map((event) => [
-    new Date(event.start_time).getTime(),
-    new Date(event.end_time).getTime(),
-  ]);
-
+  const events = data as any[];
   const now = new Date().getTime();
-  const oneWeekLater = now + 7 * 24 * 60 * 60 * 1000;
+  const threeMonthsLater = now + 90 * 24 * 60 * 60 * 1000;
 
-  return getMissingIntervals(intervals, now, oneWeekLater).map((interval) => ({
-    start: new Date(interval[0]).toISOString(),
-    end: new Date(interval[1]).toISOString(),
+  const allIntervals: number[][] = [];
+  const compulsoryIntervals: number[][] = [];
+  const flexibleEvents: any[] = [];
+
+  for (const event of events) {
+    const start = new Date(event.start_time).getTime();
+    const end = new Date(event.end_time).getTime();
+    if (end < now) continue;
+
+    allIntervals.push([start, end]);
+
+    if (event.label === "compulsory" || !event.label) {
+      compulsoryIntervals.push([start, end]);
+    } else {
+      flexibleEvents.push({ start, end, ...event });
+    }
+  }
+
+  // Good to Go
+  const pureFreeTime = getMissingIntervals(allIntervals, now, threeMonthsLater);
+  const goodToGo = pureFreeTime.map((i) => ({
+    start: new Date(i[0]).toISOString(),
+    end: new Date(i[1]).toISOString(),
   }));
+
+  // Soft conflicts
+  const redToRedFreeTime = getMissingIntervals(compulsoryIntervals, now, threeMonthsLater);
+  const softConflicts = [];
+
+  for (const gap of redToRedFreeTime) {
+    const gapStart = gap[0];
+    const gapEnd = gap[1];
+
+    const overlappingFlex = flexibleEvents.filter((f) => f.start < gapEnd && f.end > gapStart);
+
+    if (overlappingFlex.length > 0) {
+      for (const flex of overlappingFlex) {
+        softConflicts.push({
+          start: new Date(gapStart).toISOString(),
+          end: new Date(gapEnd).toISOString(),
+          label: flex.label,
+          title: flex.title || "Untitled",
+          ownerName: flex.creator_id,
+        });
+      }
+    }
+  }
+
+  return { goodToGo, softConflicts };
 }
 
 /**
@@ -755,6 +786,7 @@ export async function getRecurringTimings({
     for (const [recStart, recEnd] of allInstances) {
       const conflict = events.find((e) => {
         if (!e.start_time || !e.end_time) return false;
+        if (e.label === "flexible" || e.label === "optional") return false;
         const evStart = new Date(e.start_time);
         const evEnd = new Date(e.end_time);
         return recStart < evEnd && recEnd > evStart;
