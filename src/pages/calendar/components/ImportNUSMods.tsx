@@ -91,6 +91,21 @@ const days = {
   Sunday: 6,
 };
 
+const lessonTypeMap: Record<string, string> = {
+  "Design Lecture": "DLEC",
+  "Laboratory": "LAB",
+  "Lecture": "LEC",
+  "Packaged Lecture": "PLEC",
+  "Packaged Tutorial": "PTUT",
+  "Recitation": "REC",
+  "Sectional Teaching": "SEC",
+  "Seminar-Style Module Class": "SEM",
+  "Tutorial": "TUT",
+  "Tutorial Type 2": "TUT2",
+  "Tutorial Type 3": "TUT3",
+  "Workshop": "WS",
+};
+
 type ImportNUSModsProps = {
   functions: {
     setImportTimetable: React.Dispatch<React.SetStateAction<boolean>>;
@@ -109,22 +124,44 @@ const ImportNUSMods = ({
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const getMods = (url: string) => {
-    const params = new URL(url).searchParams;
-    const mods: { code: string; lessons: { type: string; group: string }[] }[] =
-      [];
+  const getMods = (urlString: string) => {
+    try {
+      const params = new URL(urlString).searchParams;
+      const mods: { code: string; lessons: { type: string; group: string }[] }[] = [];
 
-    // code = e.g. CS2030S, classes = LEC:x,TUT:y
-    params.forEach((classes, code) => {
-      const lessons = classes.split(",").map((lesson) => {
-        const [type, group] = lesson.split(":");
-        return { type, group };
+      params.forEach((classes, code) => {
+        if (!classes) {
+          mods.push({ code, lessons: [] });
+          return;
+        }
+
+        const lessons: { type: string; group: string }[] = [];
+
+        // STRICTLY split by semicolon so we don't break groups like "(6,27,39)"
+        const parts = classes.split(";");
+
+        parts.forEach((part) => {
+          const [type, groupRaw] = part.split(":");
+          if (type && groupRaw) {
+            // Strip away the parentheses
+            const cleanGroup = groupRaw.replace(/[\(\)\[\]]/g, "");
+
+            // NEW: Split the cleaned group by commas so "6,27,39" becomes individual groups
+            const individualGroups = cleanGroup.split(",");
+
+            individualGroups.forEach((g) => {
+              lessons.push({ type, group: g });
+            });
+          }
+        });
+
+        mods.push({ code, lessons });
       });
 
-      mods.push({ code: code, lessons: lessons });
-    });
-
-    return mods;
+      return mods;
+    } catch {
+      return [];
+    }
   };
 
   const getLessons = (
@@ -201,11 +238,12 @@ const ImportNUSMods = ({
 
       // filter semData to only contain classes that the user is in
       const filteredClasses = semData.timetable.filter((c) =>
-        mod.lessons.some(
-          (l) =>
-            l.type === c.lessonType.slice(0, 3).toUpperCase() &&
-            l.group === c.classNo
-        )
+          mod.lessons.some(
+              (l) =>
+                  // Checks the map first to catch the weird NUSMods API names
+                  (l.type === lessonTypeMap[c.lessonType] || l.type === c.lessonType.slice(0, 3).toUpperCase()) &&
+                  l.group === c.classNo
+          )
       );
 
       filteredClasses.forEach((c) => {

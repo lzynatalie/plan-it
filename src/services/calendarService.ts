@@ -665,6 +665,8 @@ export function generateRecurringEvents(
   while (start <= limit) {
     events.push({
       ...base,
+      recurrence: undefined,
+      repeat_until: undefined,
       start_time: new Date(
         start.getTime() - start.getTimezoneOffset() * 60000
       ).toISOString(),
