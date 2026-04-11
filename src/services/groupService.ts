@@ -336,11 +336,9 @@ export async function respondToGroupInvite(
     .eq("group_id", groupId);
 
     if (error) {
-    console.error("Failed to update group invite status:", error.message);
-    throw error;
-  } else {
-    console.log(`✅ Invite updated: ${status} for group ${groupId}`);
-  }
+      console.error("Failed to update group invite status:", error.message);
+      throw error;
+    }
 }
 
 /**
