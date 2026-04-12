@@ -131,80 +131,87 @@ const CalendarPage = () => {
     setError("");
     setLoading(true);
 
-    const start = new Date(newEvent.start_time!);
-    const end = new Date(newEvent.end_time!);
-
-    if (end < start) {
-      setLoading(false);
-      setError("End time must be after start time!");
-      return;
-    }
-
     if (!newEvent.label) {
       setError("Please select a priority label.");
       setLoading(false);
       return;
     }
-  
-    try {
-      const existingEvents = await getEvents(userId);
-      
-      //check for event clashes
-      const conflictingEvent = existingEvents.find((event) => {
 
-        return (
-          event.start_time &&
-          event.end_time &&
-          new Date(newEvent.start_time!) < new Date(event.end_time) &&
-          new Date(newEvent.end_time!) > new Date(event.start_time)
-        );
-      });
-      
-      if (conflictingEvent) {
-        const formattedStart = new Date(conflictingEvent.start_time!).toLocaleString();
-        const formattedEnd = new Date(conflictingEvent.end_time!).toLocaleString();
-        setError(
-          `Event clashes with "${conflictingEvent.title}" on ${formattedStart} - ${formattedEnd}`
-        );
+    if (newEvent.start_time && newEvent.end_time) {
+      const start = new Date(newEvent.start_time);
+      const end = new Date(newEvent.end_time);
+
+      if (end < start) {
         setLoading(false);
+        setError("End time must be after start time!");
         return;
       }
 
-     if (pendingMeta?.eventId) {
-      const { recurrence, repeat_until, label } = pendingMeta;
+      try {
+        const existingEvents = await getEvents(userId);
 
-      if (recurrence && repeat_until) {
-        await finalisePendingRecurringEvent(
-          {
-            id: pendingMeta.eventId,
-            creator_id: userId,
-            recurrence,
-            recurrence_group_id: newEvent.recurrence_group_id ?? undefined,
-            repeat_until,
+        // Check for event clashes
+        const conflictingEvent = existingEvents.find((event) => {
+          return (
+              event.start_time &&
+              event.end_time &&
+              new Date(newEvent.start_time!) < new Date(event.end_time) &&
+              new Date(newEvent.end_time!) > new Date(event.start_time)
+          );
+        });
+
+        if (conflictingEvent) {
+          const formattedStart = new Date(conflictingEvent.start_time!).toLocaleString();
+          const formattedEnd = new Date(conflictingEvent.end_time!).toLocaleString();
+          setError(
+              `Event clashes with "${conflictingEvent.title}" on ${formattedStart} - ${formattedEnd}`
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check for clashes:", error);
+      }
+    }
+
+    // Save the event
+    try {
+      if (pendingMeta?.eventId) {
+        const { recurrence, repeat_until, label } = pendingMeta;
+
+        if (recurrence && repeat_until) {
+          await finalisePendingRecurringEvent(
+              {
+                id: pendingMeta.eventId,
+                creator_id: userId,
+                recurrence,
+                recurrence_group_id: newEvent.recurrence_group_id ?? undefined,
+                repeat_until,
+                title: newEvent.title,
+                description: newEvent.description,
+                start_time: null,
+                end_time: null,
+                label: label ?? "compulsory",
+              },
+              newEvent.start_time!,
+              newEvent.end_time!
+          );
+        } else {
+          await finaliseEvent(userId, pendingMeta.eventId, {
             title: newEvent.title,
             description: newEvent.description,
-            start_time: null,
-            end_time: null,
-            label: label ?? "compulsory",
-          },
-          newEvent.start_time!,
-          newEvent.end_time!
-        );
+            start_time: newEvent.start_time!,
+            end_time: newEvent.end_time!,
+          });
+        }
       } else {
-        await finaliseEvent(userId, pendingMeta.eventId, {
-          title: newEvent.title,
-          description: newEvent.description,
-          start_time: newEvent.start_time!,
-          end_time: newEvent.end_time!,
-        });
-      }
-     } else {
         await createEvent(newEvent, userId);
       }
 
       await fetchEvents();
       setHighlightRange(undefined);
-      // event added, set to clean slate for next event
+
+      // Event added, set to clean slate for next event
       setNewEvent({
         title: "",
         description: "",
@@ -281,7 +288,6 @@ const CalendarPage = () => {
                 <input
                 id="start_time"
                 type="datetime-local"
-                required
                 value={newEvent.start_time|| ""}
 
                 onChange={(e) =>
@@ -295,7 +301,6 @@ const CalendarPage = () => {
                 <input
                 id="end_time"
                 type="datetime-local"
-                required
                 value={newEvent.end_time|| ""}
                 onChange={(e) =>
                   setNewEvent((prev) => ({ ...prev, end_time: e.target.value }))
