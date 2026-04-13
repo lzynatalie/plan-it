@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabaseClient";
 import { UserData } from "../context/AuthContext";
+import { getAcceptedMemberIds } from "./groupService";
 
 export type EventData = {
   id: string;
@@ -136,128 +137,70 @@ export async function getSharedEvents(userIds: string[]): Promise<EventData[]> {
  * @param event
  * @param attendeeIds
  */
+/**
+ * Creates an event (single or recurring) with a guest list.
+ * Auto-joins all accepted members if a groupId is provided.
+ */
 export async function createEvent(
-  event: UserEvent,
-  creatorId: string,
-  attendeeIds?: string[],
-  groupId?: string
+    event: UserEvent,
+    creatorId: string,
+    attendeeIds?: string[],
+    groupId?: string
 ) {
-  const isRecurring =
-    !!event.recurrence && !!event.repeat_until && !!event.recurrence_group_id;
+  const isRecurring = !!event.recurrence && !!event.repeat_until;
   const isPending = !event.start_time || !event.end_time;
 
-  if (isRecurring && isPending) {
-    const { data, error } = await supabase
-      .from("event")
-      .insert([
-        {
-          ...event,
-          creator_id: creatorId,
-          group_id: groupId || null,
-          start_time: null,
-          end_time: null,
-        },
-      ])
-      .select("id");
-
-    if (error) {
-      console.error("Failed to add base recurring event:", error.message);
-      throw error;
-    }
-
-    const baseId = data[0].id;
-
-    const attendanceRecords = [
-      {
-        event_id: baseId,
-        user_id: creatorId,
-        status: "attending",
-      },
-      ...(attendeeIds || []).map((uid) => ({
-        event_id: baseId,
-        user_id: uid,
-        status: "invited",
-      })),
-    ];
-
-    const { error: userEventError } = await supabase
-      .from("user_event")
-      .insert(attendanceRecords);
-
-    if (userEventError) {
-      console.error(
-        "Failed to create user_event entries:",
-        userEventError.message
-      );
-      throw userEventError;
-    }
-
-    return;
+  let finalAttendeeIds = attendeeIds || [];
+  if (groupId) {
+    const groupMemberIds = await getAcceptedMemberIds(groupId);
+    finalAttendeeIds = Array.from(new Set([...finalAttendeeIds, ...groupMemberIds]));
   }
+  if (!finalAttendeeIds.includes(creatorId)) {
+    finalAttendeeIds.push(creatorId);
+  }
+
+  let createdEventIds: string[] = [];
 
   if (isRecurring && !isPending) {
     const recurringEvents = generateRecurringEvents(event, event.repeat_until!);
-
     const { data, error } = await supabase
-      .from("event")
-      .insert(
-        recurringEvents.map((e) => ({
-          ...e,
-          creator_id: creatorId,
-          group_id: groupId || null,
-        }))
-      )
-      .select("id");
+        .from("event")
+        .insert(recurringEvents.map(e => ({ ...e, creator_id: creatorId, group_id: groupId || null })))
+        .select("id");
+    if (error) throw error;
+    createdEventIds = data.map(row => row.id);
+  } else {
+    const eventId = await addEvent(event, groupId);
+    createdEventIds = [eventId];
+  }
 
-    if (error) {
-      console.error("Failed to add recurring events:", error.message);
-      throw error;
-    }
+  const attendanceRecords = createdEventIds.flatMap((eventId) =>
+      finalAttendeeIds.map((uid) => ({
+        event_id: eventId,
+        user_id: uid,
+        status: groupId ? "attending" : (uid === creatorId ? "attending" : "invited"),
+      }))
+  );
 
-    const eventIds = data.map((row) => row.id);
-
-    const attendanceRecords = [
-      ...eventIds.map((id) => ({
-        event_id: id,
-        user_id: creatorId,
-        status: "attending",
-      })),
-      ...(attendeeIds || []).flatMap((uid) =>
-        eventIds.map((id) => ({
-          event_id: id,
-          user_id: uid,
-          status: "invited",
-        }))
-      ),
-    ];
-
-    const { error: userEventError } = await supabase
+  const { error: userEventError } = await supabase
       .from("user_event")
       .insert(attendanceRecords);
 
-    if (userEventError) {
-      console.error(
-        "Failed to create user_event entries:",
-        userEventError.message
-      );
-      throw userEventError;
-    }
-
-    return;
+  if (userEventError) {
+    console.error("Failed to create attendance entries:", userEventError.message);
+    throw userEventError;
   }
 
-  const eventId = await addEvent(event, groupId);
-  await addAttendee(eventId, creatorId);
-
-  if (attendeeIds) {
-    await sendEventInvites(eventId, attendeeIds);
-  }
+  return createdEventIds[0];
 }
 
 /**
- * Adds events created by the user
+ * Adds multiple events (typically recurring instances) and automatically
+ * syncs attendance for all group members if the event is a group event.
  *
- * @param events
+ * @param events events to add
+ * @param source
+ * @param userId id of user these events belong to
  */
 export async function addEvents(events: UserEvent[], source?: string, userId?: string) {
   const eventsToInsert = events.map((event) => ({
@@ -267,25 +210,39 @@ export async function addEvents(events: UserEvent[], source?: string, userId?: s
   }));
 
   const { data, error } = await supabase
-    .from("event")
-    .insert(eventsToInsert)
-    .select("id");
+      .from("event")
+      .insert(eventsToInsert)
+      .select("id, group_id");
 
   if (error) {
     console.error("Failed to add events:", error.message);
     throw error;
   }
 
-  const newEvents: { event_id: string; status: string }[] = data.map(
-    (event) => ({ event_id: event.id, user_id: userId, status: "attending" })
+  // Determine the attendee list
+  const groupId = data[0]?.group_id;
+  let attendeeIds = [userId];
+
+  if (groupId) {
+    const groupMembers = await getAcceptedMemberIds(groupId);
+    attendeeIds = Array.from(new Set([...attendeeIds, ...groupMembers]));
+  }
+
+  // Create attendance records for every attendee across every new event instance
+  const newAttendanceRecords = data.flatMap((event) =>
+      attendeeIds.filter(id => id !== undefined).map((id) => ({
+        event_id: event.id,
+        user_id: id!,
+        status: "attending",
+      }))
   );
 
   const { error: eventError } = await supabase
-    .from("user_event")
-    .insert(newEvents);
+      .from("user_event")
+      .insert(newAttendanceRecords);
 
   if (eventError) {
-    console.error("Failed to add events:", eventError.message);
+    console.error("Failed to sync attendees for new events:", eventError.message);
     throw eventError;
   }
 }
@@ -414,25 +371,26 @@ export async function sendEventInvites(eventId: string, inviteeIds: string[]) {
 }
 
 /**
- * Accepts or declines an event invite
+ * Accepts or declines an event invite (or handles manual joins)
  *
+ * @param userId
  * @param eventId
  * @param status
  */
 export async function respondToInvite(
-  userId: string,
-  eventId: string,
-  status: "attending" | "declined"
+    userId: string,
+    eventId: string,
+    status: "attending" | "declined"
 ) {
+  // Upsert automatically infers the Primary Key constraint!
   const { error } = await supabase
-    .from("user_event")
-    .update({ status: status })
-    .eq("user_id", userId)
-    .eq("event_id", eventId);
+      .from("user_event")
+      .upsert({ user_id: userId, event_id: eventId, status: status });
 
   if (error) {
     console.error("Failed to respond to invite:", error.message);
-    throw error;
+    // Throw a clean Error instance so React doesn't crash!
+    throw new Error(error.message);
   }
 }
 
@@ -521,7 +479,9 @@ export async function getTimings(eventId: string) {
 
   const allIntervals: number[][] = [];
   const compulsoryIntervals: number[][] = [];
-  const flexibleEvents: any[] = [];
+
+  // use a map to deduplicate shared events
+  const flexibleEventsMap = new Map();
 
   for (const event of events) {
     const start = new Date(event.start_time).getTime();
@@ -533,18 +493,25 @@ export async function getTimings(eventId: string) {
     if (event.label === "compulsory" || !event.label) {
       compulsoryIntervals.push([start, end]);
     } else {
-      flexibleEvents.push({ start, end, ...event });
+      flexibleEventsMap.set(event.id, { start, end, ...event });
     }
   }
 
-  // Good to Go
+  // convert map back into a clean array
+  const flexibleEvents = Array.from(flexibleEventsMap.values());
+
+  // sort intervals strictly by start time so the merging math never fails
+  allIntervals.sort((a, b) => a[0] - b[0]);
+  compulsoryIntervals.sort((a, b) => a[0] - b[0]);
+
+  // good to go
   const pureFreeTime = getMissingIntervals(allIntervals, now, threeMonthsLater);
   const goodToGo = pureFreeTime.map((i) => ({
     start: new Date(i[0]).toISOString(),
     end: new Date(i[1]).toISOString(),
   }));
 
-  // Soft conflicts
+  // soft conflicts
   const redToRedFreeTime = getMissingIntervals(compulsoryIntervals, now, threeMonthsLater);
   const softConflicts = [];
 
@@ -859,17 +826,16 @@ export async function updateRecurringGroup(
 /**
  * Finalises a pending recurring event by generating all future instances
  * based on the chosen start and end time.
- * Deletes the base placeholder event and inserts the full recurring series of finalised events.
- *
- * @param baseEvent - The original placeholder event with recurrence information but no set timing.
+ * and syncing them to all group members.
+ * @param currentEvent - The original placeholder event with recurrence information but no set timing.
  * @param finalisedStart - The confirmed start time to apply to all instances.
  * @param finalisedEnd - The confirmed end time to apply to all instances.
  * @returns An object with optional `error` key if something goes wrong.
  */
 export const finalisePendingRecurringEvent = async (
-  currentEvent: EventData,
-  finalisedStart: string,
-  finalisedEnd: string
+    currentEvent: EventData,
+    finalisedStart: string,
+    finalisedEnd: string
 ) => {
   if (!currentEvent.recurrence || !currentEvent.repeat_until) {
     return { error: "Missing recurrence information." };
@@ -890,13 +856,15 @@ export const finalisePendingRecurringEvent = async (
   try {
     const events = generateRecurringEvents(base, currentEvent.repeat_until);
 
+    // Clean up the placeholder/intent data
     if (currentEvent.recurrence_group_id) {
       await deleteRecurringGroup(currentEvent.recurrence_group_id);
     } else {
       await deleteEvent(currentEvent.id);
     }
 
-    await addEvents(events);
+    // Pass the original creator ID so the group sync works!
+    await addEvents(events, undefined, currentEvent.creator_id);
 
     return {};
   } catch (err) {
@@ -908,7 +876,7 @@ export const finalisePendingRecurringEvent = async (
 /**
  * Submits a vote for a given timing option on behalf of the user.
  * If the user already voted for the timing, the duplicate vote is silently ignored.
- * 
+ *
  * @param userId - the ID of the user voting.
  * @param timingId - the ID of the event_poll_timing option the user is voting for.
  */
@@ -965,7 +933,7 @@ export async function submitVote(userId: string, timingId: string) {
 
 /**
  * Fetches all poll timings associated with an event.
- * 
+ *
  * @param eventId - ID of the event
  * @returns list of timing options users can vote for.
  */
@@ -985,7 +953,7 @@ export async function getPollTimings(eventId: string) {
 
 /**
  * Fetches all votes for all timings in a given event's poll.
- * 
+ *
  * @param eventId - ID of the event
  * @returns list of vote records (user_id, timing_id)
  */
@@ -1093,7 +1061,7 @@ export async function checkPollCompletion(eventId: string): Promise<void> {
 
 /**Adds a timing option to the poll for an event.
  * Only the event creator can do this.
- * 
+ *
  * @param eventId - ID of the event
  * @param start_time - ISO start time
  * @param end_time - ISO end time
@@ -1122,7 +1090,7 @@ export async function addPollOption(
   const { error } = await supabase
   .from("event_poll_timing")
   .insert([
-    { 
+    {
       event_id: eventId,
       start_time,
       end_time,
@@ -1139,7 +1107,7 @@ export async function addPollOption(
 /**
  * Removes a vote submitted by the current user for a poll option.
  * This allows users to revoke their vote before the poll is finalised.
- * 
+ *
  * @param userId - The ID of the user revoking their vote.
  * @param timingId - the ID of the poll timing option they previously vored for.
  */
