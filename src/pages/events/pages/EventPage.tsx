@@ -124,7 +124,6 @@ const EventPage = () => {
       return startTime >= now.getTime() && startTime <= rangeLimit.getTime();
     });
 
-    const attendees = await getAttendees(currentEvent.id);
     const userMap = Object.fromEntries(attendees.map(a => [a.id, a.username]));
 
     const filteredSoftConflicts = softConflicts
@@ -152,14 +151,23 @@ const EventPage = () => {
         const event = await getEvent(eventId);
         setCurrentEvent(event);
 
-        const attendees = await getAttendees(eventId);
-        setAttendees(attendees);
+        const attendeesList = await getAttendees(eventId);
+        setAttendees(attendeesList);
+
+        // We need the map here too!
+        const userMap = Object.fromEntries(attendeesList.map(a => [a.id, a.username]));
 
         const fetchedTimings = (await getTimings(eventId)) as any;
-        setTimings(fetchedTimings.goodToGo);
-        setSoftConflicts(fetchedTimings.softConflicts);
 
-        // Fetch poll timings and votes if event is pending
+        const mappedSoftConflicts = fetchedTimings.softConflicts.map((c: any) => ({
+          ...c,
+          ownerName: c.ownerName === userId ? "you" : userMap[c.ownerName] || "a user"
+        }));
+
+        setTimings(fetchedTimings.goodToGo);
+        setSoftConflicts(mappedSoftConflicts);
+
+        // Poll if the event is pending
         if (!event.start_time || event.start_time === "") {
           await refreshPollData();
         }
@@ -173,9 +181,14 @@ const EventPage = () => {
   }, []);
 
   const handleJoinEvent = async () => {
-    await respondToInvite(userId, currentEvent.id, "attending");
-    await fetchAttendees();
-    await fetchTimings();
+    try {
+      await respondToInvite(userId, currentEvent.id, "attending");
+      await fetchAttendees();
+      await fetchTimings();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to join event.");
+    }
   };
 
   const handleLeaveEvent = async (eventId: string) => {
@@ -358,8 +371,8 @@ const EventPage = () => {
                                   fontSize: "0.9rem"
                                 }}
                               >
-                                {conflict.title
-                                  ? `Clashes with your ${conflict.label} event "${conflict.title}"`
+                                {conflict.ownerName === "you"
+                                  ? `Clashes with your ${conflict.label} event "${conflict.title || 'Untitled'}"`
                                   : `Clashes with ${conflict.ownerName}'s ${conflict.label} event`}
                               </li>
                             ))}

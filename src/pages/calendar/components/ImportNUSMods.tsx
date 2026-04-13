@@ -137,7 +137,6 @@ const ImportNUSMods = ({
 
         const lessons: { type: string; group: string }[] = [];
 
-        // STRICTLY split by semicolon so we don't break groups like "(6,27,39)"
         const parts = classes.split(";");
 
         parts.forEach((part) => {
@@ -146,7 +145,6 @@ const ImportNUSMods = ({
             // Strip away the parentheses
             const cleanGroup = groupRaw.replace(/[\(\)\[\]]/g, "");
 
-            // NEW: Split the cleaned group by commas so "6,27,39" becomes individual groups
             const individualGroups = cleanGroup.split(",");
 
             individualGroups.forEach((g) => {

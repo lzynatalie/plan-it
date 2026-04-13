@@ -316,31 +316,55 @@ export async function getGroupInvites(userId: string): Promise<Group[]> {
   return groups;
 }
 
-
 /**
- * Updates a group invitation status (e.g. accepted, declined).
- * 
+ * Updates a group invitation status and retroactively joins events if accepted.
  * @param userId - The invited user.
  * @param groupId - The group ID.
  * @param status - New status: 'accepted' or 'declined'.
  */
 export async function respondToGroupInvite(
-  userId: string,
-  groupId: string,
-  status: "accepted" | "declined"
+    userId: string,
+    groupId: string,
+    status: "accepted" | "declined"
 ) {
   const { error } = await supabase
-    .from("user_group")
-    .update({ status })
-    .eq("user_id", userId)
-    .eq("group_id", groupId);
+      .from("user_group")
+      .update({ status })
+      .eq("user_id", userId)
+      .eq("group_id", groupId);
 
-    if (error) {
-      console.error("Failed to update group invite status:", error.message);
-      throw error;
+  if (error) throw new Error(error.message);
+
+  if (status === "accepted") {
+    // Find all events belonging to this group
+    const { data: events, error: eventError } = await supabase
+        .from("event")
+        .select("id")
+        .eq("group_id", groupId);
+
+    if (eventError || !events) {
+      console.error("Failed to fetch group events:", eventError?.message);
+      return;
     }
-}
 
+    if (events.length > 0) {
+      const retrospectiveRecords = events.map((e) => ({
+        event_id: e.id,
+        user_id: userId,
+        status: "attending",
+      }));
+
+      // Let Supabase handle the constraints automatically
+      const { error: joinError } = await supabase
+          .from("user_event")
+          .upsert(retrospectiveRecords);
+
+      if (joinError) {
+        console.error("Failed to retroactively join events:", joinError.message);
+      }
+    }
+  }
+}
 /**
  * Fetches all users who are invited to the group but haven't accepted yet.
  * 
@@ -363,4 +387,26 @@ export async function getInvitedMembers(groupId: string): Promise<{ id: string; 
     id: entry.user_id,
     username: (entry as any).user.username,
   }));
+}
+
+/**
+ * Fetches only the IDs of accepted members in a group.
+ * Useful for auto-joining them to group events.
+ *
+ * @param groupId - The group ID.
+ * @returns Array of users who have accepted the invitation to join the group
+ */
+export async function getAcceptedMemberIds(groupId: string): Promise<string[]> {
+  const { data, error } = await supabase
+      .from("user_group")
+      .select("user_id")
+      .eq("group_id", groupId)
+      .eq("status", "accepted");
+
+  if (error) {
+    console.error("Failed to fetch group member IDs:", error.message);
+    throw error;
+  }
+
+  return data.map((row) => row.user_id);
 }
